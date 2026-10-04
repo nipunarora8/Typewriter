@@ -10,6 +10,9 @@ export const themeId = writable<ThemeId>(resolveThemeId(null))
  */
 export const windowScale = writable<number>(1)
 
+/** Default scale for this screen (set once at launch). Collapsing returns here. */
+export const baseScale = writable<number>(1)
+
 export async function initializePreferences() {
   try {
     const state = await tauriService.getAppState()

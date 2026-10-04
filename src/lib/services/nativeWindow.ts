@@ -14,8 +14,27 @@ export interface LogicalSize {
 export const COLLAPSED_SIZE: LogicalSize = { width: 380, height: 252 }
 export const EXPANDED_SIZE: LogicalSize = { width: 380, height: 636 }
 
-export const MIN_SCALE = 0.7
+export const MIN_SCALE = 0.5
 export const MAX_SCALE = 1.6
+
+/**
+ * Default scale for this screen: the open widget should take about half
+ * of the screen height, never more than its design size. A 14" MacBook
+ * gets ~0.75, a large monitor gets 1. Browser fallback: 1.
+ */
+export async function fitScaleForScreen(): Promise<number> {
+  if (!hasTauriRuntime()) return 1
+  try {
+    const { currentMonitor } = await import('@tauri-apps/api/window')
+    const monitor = await currentMonitor()
+    if (!monitor) return 1
+    const logicalHeight = monitor.size.height / monitor.scaleFactor
+    const fit = (logicalHeight * 0.5) / EXPANDED_SIZE.height
+    return Math.min(1, Math.max(0.7, Math.round(fit * 20) / 20))
+  } catch {
+    return 1
+  }
+}
 
 function hasTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window

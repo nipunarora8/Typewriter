@@ -84,6 +84,7 @@
 
   onMount(() => {
     void initializePreferences()
+    void widgetController.initScale()
     void profileController.hydrate()
     void initializeTodos()
     void onNativeResize(handleNativeResize).then((unlisten) => {
