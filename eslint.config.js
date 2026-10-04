@@ -38,6 +38,7 @@ export default tseslint.config(
       'playwright-report/**',
       'test-results/**',
       '.claude-scratch/**',
+      'site/**',
     ],
   },
 )
