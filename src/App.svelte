@@ -3,6 +3,7 @@
   import TypewriterWidget from './lib/components/TypewriterWidget.svelte'
   import TodoSheet from './lib/components/TodoSheet.svelte'
   import FilePicker from './lib/components/FilePicker.svelte'
+  import ListManager from './lib/components/ListManager.svelte'
   import { widgetMode, widgetController } from './lib/stores/widget'
   import {
     COLLAPSED_SIZE,
@@ -20,9 +21,12 @@
     addTask,
     dismissError,
   } from './lib/stores/todos'
+  import { profilesState, profileController, draftFor, setDraftFor } from './lib/stores/profiles'
   import type { TodoItem } from './lib/types'
 
   let draft = ''
+  let draftOwner: string | null = null
+  let managerOpen = false
   let expandButtonEl: HTMLElement | undefined
   let sheetContainerEl: HTMLElement | undefined
   let pendingCollapseGeneration = 0
@@ -32,12 +36,26 @@
   $: tasks = $todosState.document?.tasks ?? []
   $: hasFile = $todosState.document !== null
   $: errorMessage = $todosState.errorMessage
+  $: loading = $todosState.loading
+  $: hasProfiles = $profilesState.profiles.length > 0
+  $: unavailable = !hasFile && !loading && hasProfiles
+  $: syncDraftOwner($profilesState.activeProfileId)
+
+  // Unsent drafts belong to the profile they were typed in: park the
+  // current text under its owner and load the newly active profile's own.
+  function syncDraftOwner(activeId: string | null) {
+    if (activeId === draftOwner) return
+    setDraftFor(draftOwner, draft)
+    draft = draftFor(activeId)
+    draftOwner = activeId
+  }
 
   let resizeUnlisten: (() => void) | undefined
   let resizeDebounceId: ReturnType<typeof setTimeout> | undefined
 
   onMount(() => {
     void initializePreferences()
+    void profileController.hydrate()
     void initializeTodos()
     void onNativeResize(handleNativeResize).then((unlisten) => {
       resizeUnlisten = unlisten
@@ -74,9 +92,11 @@
   async function handleExpand() {
     await widgetController.requestExpand()
     await tick()
-    const firstFocusable = sheetContainerEl?.querySelector<HTMLElement>(
-      'input[type="text"], button, [tabindex]',
-    )
+    // Same effective target as before the list switcher existed: the
+    // add-task input (header chevrons must not steal initial focus).
+    const firstFocusable =
+      sheetContainerEl?.querySelector<HTMLElement>('#add-task-input:not([disabled])') ??
+      sheetContainerEl?.querySelector<HTMLElement>('.list button, [tabindex]')
     firstFocusable?.focus()
   }
 
@@ -105,8 +125,23 @@
   }
 
   function handleAdd(text: string) {
+    if (!hasFile || loading) return
     void addTask(text)
     draft = ''
+  }
+
+  function handleNavigate(delta: 1 | -1) {
+    void profileController.navigate(delta)
+  }
+
+  function handleRelinkActive() {
+    const id = $profilesState.activeProfileId
+    if (id) void profileController.relinkProfile(id)
+  }
+
+  async function handleAddProfile(name: string) {
+    await profileController.addProfile(name)
+    managerOpen = false
   }
 
   function handleChooseFile() {
@@ -114,8 +149,12 @@
   }
 
   function handleWindowKeydown(e: KeyboardEvent) {
-    if (e.key !== 'Escape') return
+    if (e.key !== 'Escape' || e.defaultPrevented) return
     if ($widgetMode !== 'expanded') return
+    if (managerOpen) {
+      managerOpen = false
+      return
+    }
     if (errorMessage) {
       dismissError()
       return
@@ -144,7 +183,7 @@
       }}
     >
       <div class="sheet-slot-paper">
-        {#if !hasFile}
+        {#if !hasFile && !hasProfiles}
           <div class="sheet-shell">
             {#if errorMessage}
               <p class="inline-error" role="alert">{errorMessage}</p>
@@ -156,9 +195,28 @@
             {tasks}
             bind:draft
             {errorMessage}
+            {loading}
+            {unavailable}
+            profiles={$profilesState.profiles}
+            activeProfileId={$profilesState.activeProfileId}
             onToggle={handleToggle}
             onAdd={handleAdd}
             onDismissError={dismissError}
+            onNavigate={handleNavigate}
+            onManage={() => (managerOpen = true)}
+            onRetry={() => void profileController.retry()}
+            onRelink={handleRelinkActive}
+          />
+        {/if}
+        {#if managerOpen}
+          <ListManager
+            profiles={$profilesState.profiles}
+            activeProfileId={$profilesState.activeProfileId}
+            onClose={() => (managerOpen = false)}
+            onAdd={handleAddProfile}
+            onRename={(id, name) => void profileController.renameProfile(id, name)}
+            onRelink={(id) => void profileController.relinkProfile(id)}
+            onRemove={(id) => void profileController.removeProfile(id)}
           />
         {/if}
       </div>
@@ -241,6 +299,7 @@
   }
 
   .sheet-slot-paper {
+    position: relative;
     flex: 1;
     min-height: 0;
   }

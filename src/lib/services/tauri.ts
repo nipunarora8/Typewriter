@@ -12,7 +12,7 @@
  * This flag does not exist in production builds/typings — it is a
  * test-only seam, not a runtime feature.
  */
-import type { TodoDocument } from '../types'
+import type { Profile, TodoDocument } from '../types'
 
 export type UpdateSource = 'startup' | 'user-write' | 'external-change'
 
@@ -31,13 +31,45 @@ export interface FileStatusEvent {
 
 export interface AppErrorPayload {
   category: string
-  message: string
+  // Rust unit-variant errors serialize as `{ category }` only.
+  message?: string
+}
+
+const CATEGORY_MESSAGES: Record<string, string> = {
+  'no-file-selected': 'No file is selected yet.',
+  'not-markdown': "That file isn't a Markdown (.md) file.",
+  'is-directory': 'That path is a directory, not a file.',
+  'file-missing': 'This note could not be found. It may have been moved or deleted.',
+  'permission-denied': "The widget doesn't have permission to read or write that file.",
+  'invalid-utf8': "The file contains invalid UTF-8 text and can't be read safely.",
+  'symlink-rejected': "Linked files (symlinks) aren't supported for the selected note.",
+  'unsupported-file-type': "That isn't a regular file.",
+  'stale-revision': 'The note changed; refreshed the list — please try again.',
+  'stale-session': 'That list changed or was closed; please try again.',
+  'invalid-task-text': "Task text can't be empty or longer than 2000 characters.",
+  'multiline-rejected': "Task text can't contain line breaks or control characters.",
+  'no-safe-insertion-point':
+    "Couldn't find a safe place to add the task without disturbing the note.",
+  'recovery-snapshot-failed': "Couldn't save a safety copy before writing, so nothing was changed.",
+  'write-conflict': 'The note changed on disk right before saving; nothing was overwritten.',
+  'write-outcome-uncertain':
+    "The save finished, but the app couldn't confirm the result. Reload before trying again.",
+  'profile-not-found': 'That saved list no longer exists.',
+  'invalid-profile-name':
+    "List names can't be empty, longer than 80 characters, or contain control characters.",
+  internal: 'Something unexpected went wrong.',
+}
+
+export function errorMessageFor(payload: AppErrorPayload): string {
+  return (
+    payload.message ?? CATEGORY_MESSAGES[payload.category] ?? 'Something unexpected went wrong.'
+  )
 }
 
 export class TauriCommandError extends Error {
   category: string
   constructor(payload: AppErrorPayload) {
-    super(payload.message)
+    super(errorMessageFor(payload))
     this.category = payload.category
   }
 }
@@ -45,6 +77,13 @@ export class TauriCommandError extends Error {
 export interface AppStateSnapshot {
   selectedPath: string | null
   themeId: string | null
+  profiles: Profile[]
+  activeProfileId: string | null
+}
+
+export interface SwitchResult {
+  document: TodoDocument | null
+  error: AppErrorPayload | null
 }
 
 export type Unlisten = () => void
@@ -61,6 +100,11 @@ export interface TestAdapter {
   }): Promise<TodoDocument>
   addTodo(args: { text: string; revision: string; sourceSession: string }): Promise<TodoDocument>
   setPreferences(args: { themeId: string | null }): Promise<void>
+  addProfile(args: { displayName: string }): Promise<TodoDocument>
+  renameProfile(args: { profileId: string; displayName: string }): Promise<void>
+  relinkProfile(args: { profileId: string }): Promise<TodoDocument | null>
+  removeProfile(args: { profileId: string }): Promise<TodoDocument | null>
+  switchProfile(args: { profileId: string }): Promise<SwitchResult>
   onTodosUpdated(handler: (event: TodosUpdatedEvent) => void): Unlisten
   onFileStatus(handler: (event: FileStatusEvent) => void): Unlisten
   onTodosError(handler: (event: AppErrorPayload) => void): Unlisten
@@ -88,7 +132,7 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
   try {
     return await tauriInvoke<T>(cmd, args)
   } catch (err) {
-    if (err && typeof err === 'object' && 'category' in err && 'message' in err) {
+    if (err && typeof err === 'object' && 'category' in err) {
       throw new TauriCommandError(err as AppErrorPayload)
     }
     throw err
@@ -138,6 +182,39 @@ export async function setPreferences(args: { themeId: string | null }): Promise<
   const adapter = testAdapter()
   if (adapter) return adapter.setPreferences(args)
   return invoke<void>('set_preferences', args)
+}
+
+export async function addProfile(args: { displayName: string }): Promise<TodoDocument> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.addProfile(args)
+  return invoke<TodoDocument>('add_profile', args)
+}
+
+export async function renameProfile(args: {
+  profileId: string
+  displayName: string
+}): Promise<void> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.renameProfile(args)
+  return invoke<void>('rename_profile', args)
+}
+
+export async function relinkProfile(args: { profileId: string }): Promise<TodoDocument | null> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.relinkProfile(args)
+  return invoke<TodoDocument | null>('relink_profile', args)
+}
+
+export async function removeProfile(args: { profileId: string }): Promise<TodoDocument | null> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.removeProfile(args)
+  return invoke<TodoDocument | null>('remove_profile', args)
+}
+
+export async function switchProfile(args: { profileId: string }): Promise<SwitchResult> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.switchProfile(args)
+  return invoke<SwitchResult>('switch_profile', args)
 }
 
 export async function onTodosUpdated(

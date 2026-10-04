@@ -72,7 +72,7 @@ export async function initialize() {
     todosState.update((s) => ({ ...s, watchStatus: event.status }))
   })
   unlistenError = await tauriService.onTodosError((event) => {
-    todosState.update((s) => ({ ...s, errorMessage: event.message }))
+    todosState.update((s) => ({ ...s, errorMessage: tauriService.errorMessageFor(event) }))
   })
 
   todosState.update((s) => ({ ...s, loading: true }))
@@ -171,6 +171,53 @@ export async function addTask(text: string) {
 
 export function dismissError() {
   todosState.update((s) => ({ ...s, errorMessage: null }))
+}
+
+/**
+ * Apply a document that arrived from switching the active profile.
+ * Behaves like any other newer-session document (see `isNewer`), but
+ * is exported for the profile store rather than being driven by a
+ * `todos:updated` event — a profile switch resolves its own document
+ * directly from the `switch_profile`/`add_profile`/`relink_profile`
+ * command result, not through the watcher/event pipeline.
+ */
+export function applyDocumentFromProfileSwitch(document: TodoDocument) {
+  applyDocument(document)
+}
+
+/**
+ * Called synchronously the moment a switch is requested. Hides the old
+ * list immediately (it must never show under the new list's name) and
+ * permanently supersedes its session, so a late command result or
+ * watcher event from the old list is rejected by `isNewer`.
+ */
+export function beginProfileSwitch() {
+  if (appliedSession !== null) supersededSessions.add(appliedSession)
+  todosState.update((s) => ({
+    ...s,
+    document: null,
+    errorMessage: null,
+    watchStatus: null,
+    loading: true,
+  }))
+}
+
+/** Permanently reject results/events from a session that lost a switch race. */
+export function supersedeSession(session: string) {
+  supersededSessions.add(session)
+}
+
+export function endProfileSwitch() {
+  todosState.update((s) => ({ ...s, loading: false }))
+}
+
+/** Clear the visible document, e.g. when a profile's file is missing. */
+export function clearDocument() {
+  todosState.update((s) => ({ ...s, document: null }))
+}
+
+export function setLoadError(message: string) {
+  todosState.update((s) => ({ ...s, errorMessage: message }))
 }
 
 function describeError(err: unknown): string {

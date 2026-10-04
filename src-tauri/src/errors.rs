@@ -56,6 +56,14 @@ pub enum AppError {
     )]
     WriteOutcomeUncertain,
 
+    #[error("That saved list no longer exists.")]
+    ProfileNotFound,
+
+    #[error(
+        "List names can't be empty, longer than 80 characters, or contain control characters."
+    )]
+    InvalidProfileName,
+
     #[error("Something unexpected went wrong.")]
     Internal,
 }

@@ -56,9 +56,11 @@ export async function requestNativeSize(
     await nextFrame()
     return
   }
-  const { getCurrentWindow, LogicalSize: TauriLogicalSize, PhysicalPosition } = await import(
-    '@tauri-apps/api/window'
-  )
+  const {
+    getCurrentWindow,
+    LogicalSize: TauriLogicalSize,
+    PhysicalPosition,
+  } = await import('@tauri-apps/api/window')
   const win = getCurrentWindow()
   const target = scaled(baseSize, scale)
   const targetSize = new TauriLogicalSize(target.width, target.height)

@@ -16,7 +16,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let config_dir = app.path().app_config_dir()?;
+            // TYPEWRITER_CONFIG_DIR lets dev/test runs use a throwaway
+            // config instead of the real per-user one.
+            let config_dir = match std::env::var_os("TYPEWRITER_CONFIG_DIR") {
+                Some(dir) => std::path::PathBuf::from(dir),
+                None => app.path().app_config_dir()?,
+            };
             let config_path = config_dir.join("config.json");
             app.manage(AppState::new(config_path));
             let handle = app.handle().clone();
@@ -47,6 +52,11 @@ pub fn run() {
             commands::toggle_todo,
             commands::add_todo,
             commands::set_preferences,
+            commands::add_profile,
+            commands::rename_profile,
+            commands::relink_profile,
+            commands::remove_profile,
+            commands::switch_profile,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

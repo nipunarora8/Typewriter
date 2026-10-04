@@ -15,3 +15,9 @@ export interface TodoDocument {
 }
 
 export type WidgetMode = 'collapsed' | 'expanding' | 'expanded' | 'collapsing'
+
+export interface Profile {
+  id: string
+  displayName: string
+  path: string
+}
