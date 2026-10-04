@@ -11,7 +11,7 @@ export interface LogicalSize {
   height: number
 }
 
-export const COLLAPSED_SIZE: LogicalSize = { width: 300, height: 150 }
+export const COLLAPSED_SIZE: LogicalSize = { width: 340, height: 190 }
 export const EXPANDED_SIZE: LogicalSize = { width: 380, height: 560 }
 
 function hasTauriRuntime(): boolean {
@@ -32,7 +32,14 @@ export async function requestNativeSize(size: LogicalSize): Promise<void> {
   }
   const { getCurrentWindow, LogicalSize: TauriLogicalSize } = await import('@tauri-apps/api/window')
   const win = getCurrentWindow()
-  await win.setSize(new TauriLogicalSize(size.width, size.height))
+  const target = new TauriLogicalSize(size.width, size.height)
+  // Pin min/max to the exact target so the window stays fixed at one
+  // of our two known sizes — resizable:true (required for setSize to
+  // work at all) would otherwise let the user drag a resize handle to
+  // an arbitrary size.
+  await win.setMinSize(target)
+  await win.setMaxSize(target)
+  await win.setSize(target)
   await nextFrame()
 }
 

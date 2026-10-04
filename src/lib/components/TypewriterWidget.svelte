@@ -66,14 +66,14 @@
   }
 
   .arrow {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     color: var(--color-on-surface-muted);
     line-height: 1;
   }
 
   .count {
     font-family: var(--font-body);
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     color: var(--color-on-surface);
     letter-spacing: 0.02em;
     white-space: nowrap;
@@ -83,35 +83,35 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.14rem;
+    gap: 0.2rem;
   }
 
   .key-row {
     display: flex;
-    gap: 0.14rem;
+    gap: 0.2rem;
   }
 
   .key {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 0.95rem;
-    height: 0.95rem;
+    width: 1.3rem;
+    height: 1.3rem;
     border-radius: 999px;
     background: var(--color-key);
     border: 1px solid var(--border-key);
     color: var(--color-key-ink);
     font-family: var(--font-body);
-    font-size: 0.4rem;
+    font-size: 0.55rem;
     font-weight: 700;
     line-height: 1;
   }
 
   .label {
     font-family: var(--font-body);
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     color: var(--color-on-surface-muted);
     letter-spacing: 0.02em;
-    margin-top: 0.1rem;
+    margin-top: 0.15rem;
   }
 </style>

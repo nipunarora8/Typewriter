@@ -13,9 +13,9 @@
     "windows": [
       {
         "title": "typewriter",
-        "width": 300,
-        "height": 150,
-        "resizable": false,
+        "width": 340,
+        "height": 190,
+        "resizable": true,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": false,

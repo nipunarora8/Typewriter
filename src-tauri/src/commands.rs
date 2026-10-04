@@ -28,6 +28,8 @@ pub struct AppStateInner {
     pub expected_revision: ExpectedRevision,
     pub last_published_revision: Arc<Mutex<String>>,
     pub watcher: Option<WatcherHandle>,
+    pub window_x: Option<i32>,
+    pub window_y: Option<i32>,
 }
 
 impl AppState {
@@ -42,7 +44,15 @@ impl AppState {
             expected_revision: Arc::new(Mutex::new(None)),
             last_published_revision: Arc::new(Mutex::new(String::new())),
             watcher: None,
+            window_x: config.window_x,
+            window_y: config.window_y,
         }))
+    }
+}
+
+impl AppStateInner {
+    pub fn persist_config(&self) {
+        persist_config(self);
     }
 }
 
@@ -275,8 +285,8 @@ fn persist_config(inner: &AppStateInner) {
         selected_path: inner.selected_path.clone(),
         theme_id: inner.theme_id.clone(),
         widget_expanded: false,
-        window_x: None,
-        window_y: None,
+        window_x: inner.window_x,
+        window_y: inner.window_y,
     };
     let _ = config.save(&inner.config_path);
 }

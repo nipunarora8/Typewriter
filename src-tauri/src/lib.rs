@@ -4,9 +4,10 @@ pub mod errors;
 pub mod markdown;
 pub mod models;
 pub mod watcher;
+pub mod window;
 pub mod writer;
 
-use tauri::Manager;
+use tauri::{Manager, WindowEvent};
 
 use commands::AppState;
 
@@ -21,7 +22,16 @@ pub fn run() {
             let handle = app.handle().clone();
             let state = app.state::<AppState>();
             commands::start_watcher_if_selected(&handle, &state);
+            if let Some(main_window) = app.get_webview_window("main") {
+                window::restore_position(&main_window, &state);
+            }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let WindowEvent::Moved(_) = event {
+                let state = window.state::<AppState>();
+                window::save_position(window, &state);
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_app_state,
