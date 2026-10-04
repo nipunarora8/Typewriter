@@ -9,6 +9,7 @@ use serde::Serialize;
 /// byte offset, not a persistent identity — never resolve it by matching
 /// task text, since duplicate text is legal and ambiguous.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct TodoItem {
     pub line_id: String,
     pub line_index: usize,
@@ -19,6 +20,7 @@ pub struct TodoItem {
 
 /// A parsed snapshot of the selected file at one point in time.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TodoDocument {
     pub path: PathBuf,
     /// Changes whenever a file is selected/reselected. Mutations and
@@ -42,6 +44,7 @@ pub enum UpdateSource {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TodosUpdatedEvent {
     pub document: TodoDocument,
     pub source: UpdateSource,
@@ -56,6 +59,7 @@ pub enum WatchStatus {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FileStatusEvent {
     pub source_session: String,
     pub sequence: u64,

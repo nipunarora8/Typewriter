@@ -1,29 +1,43 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte'
+  import { onMount, onDestroy, tick } from 'svelte'
   import TypewriterWidget from './lib/components/TypewriterWidget.svelte'
   import TodoSheet from './lib/components/TodoSheet.svelte'
+  import FilePicker from './lib/components/FilePicker.svelte'
   import { widgetMode, widgetController } from './lib/stores/widget'
-  import { applyTheme, resolveThemeId, THEME_IDS, type ThemeId } from './lib/theme/theme'
-  import { fictionalTasks } from './lib/fixtures/fictionalTasks'
+  import { themeId, initializePreferences, setTheme } from './lib/stores/preferences'
+  import {
+    todosState,
+    initialize as initializeTodos,
+    teardown as teardownTodos,
+    chooseFile,
+    toggleTask,
+    addTask,
+    dismissError,
+  } from './lib/stores/todos'
+  import { THEME_IDS, type ThemeId } from './lib/theme/theme'
   import type { TodoItem } from './lib/types'
 
-  let tasks: TodoItem[] = fictionalTasks
   let draft = ''
-  let errorMessage: string | null = null
-  let themeId: ThemeId = resolveThemeId(null)
-
   let expandButtonEl: HTMLElement | undefined
   let sheetContainerEl: HTMLElement | undefined
+  let pendingCollapseGeneration = 0
 
   $: isExpandedLike = $widgetMode === 'expanding' || $widgetMode === 'expanded'
+  $: tasks = $todosState.document?.tasks ?? []
+  $: hasFile = $todosState.document !== null
+  $: errorMessage = $todosState.errorMessage
 
   onMount(() => {
-    applyTheme(themeId)
+    void initializePreferences()
+    void initializeTodos()
+  })
+
+  onDestroy(() => {
+    void teardownTodos()
   })
 
   function handleThemeChange(id: ThemeId) {
-    themeId = id
-    applyTheme(id)
+    void setTheme(id)
   }
 
   async function handleExpand() {
@@ -38,12 +52,8 @@
   function handleRequestCollapse() {
     const generation = widgetController.currentGeneration() + 1
     widgetController.requestCollapse()
-    // The sheet's own CSS exit transition drives timing; finishCollapse
-    // is invoked from the transition's outro callback below.
     pendingCollapseGeneration = generation
   }
-
-  let pendingCollapseGeneration = 0
 
   async function onSheetExitComplete() {
     await widgetController.finishCollapse(pendingCollapseGeneration)
@@ -52,25 +62,16 @@
   }
 
   function handleToggle(item: TodoItem) {
-    tasks = tasks.map((t) => (t.lineId === item.lineId ? { ...t, completed: !t.completed } : t))
+    void toggleTask(item)
   }
 
   function handleAdd(text: string) {
-    tasks = [
-      ...tasks,
-      {
-        lineId: `fictional:${Date.now()}`,
-        lineIndex: tasks.length,
-        text,
-        completed: false,
-        indent: '',
-      },
-    ]
+    void addTask(text)
     draft = ''
   }
 
-  function dismissError() {
-    errorMessage = null
+  function handleChooseFile() {
+    void chooseFile()
   }
 
   function handleWindowKeydown(e: KeyboardEvent) {
@@ -103,20 +104,29 @@
         if ($widgetMode === 'collapsing') onSheetExitComplete()
       }}
     >
-      <TodoSheet
-        {tasks}
-        bind:draft
-        {errorMessage}
-        onToggle={handleToggle}
-        onAdd={handleAdd}
-        onDismissError={dismissError}
-      />
+      {#if !hasFile}
+        <div class="sheet-shell">
+          {#if errorMessage}
+            <p class="inline-error" role="alert">{errorMessage}</p>
+          {/if}
+          <FilePicker onChoose={handleChooseFile} busy={$todosState.loading} />
+        </div>
+      {:else}
+        <TodoSheet
+          {tasks}
+          bind:draft
+          {errorMessage}
+          onToggle={handleToggle}
+          onAdd={handleAdd}
+          onDismissError={dismissError}
+        />
+      {/if}
     </div>
   {/if}
 
   <div class="dev-theme-switcher" aria-label="Theme switcher (Phase 0A prototype)">
     {#each THEME_IDS as id}
-      <button type="button" class:active={themeId === id} on:click={() => handleThemeChange(id)}>
+      <button type="button" class:active={$themeId === id} on:click={() => handleThemeChange(id)}>
         {id}
       </button>
     {/each}
@@ -165,6 +175,27 @@
     transition:
       opacity var(--duration-sheet-exit) var(--ease-exit),
       transform var(--duration-sheet-exit) var(--ease-exit);
+  }
+
+  .sheet-shell {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    background: var(--color-paper);
+    border: 1px solid var(--color-paper-edge);
+    border-radius: var(--radius-paper);
+    box-shadow: var(--shadow-paper);
+    overflow: hidden;
+  }
+
+  .inline-error {
+    margin: var(--space-2) var(--space-3) 0;
+    padding: var(--space-2) var(--space-3);
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    color: var(--color-danger);
   }
 
   .dev-theme-switcher {

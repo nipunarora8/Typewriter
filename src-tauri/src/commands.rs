@@ -106,6 +106,7 @@ fn load_document(path: &PathBuf, source_session: &str, sequence: u64) -> AppResu
 }
 
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppStateSnapshot {
     pub selected_path: Option<PathBuf>,
     pub theme_id: Option<String>,
