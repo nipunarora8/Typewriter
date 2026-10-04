@@ -1,20 +1,25 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "typewriter_scaffold_tmp",
+  "productName": "typewriter",
   "version": "0.1.0",
-  "identifier": "com.nipunarora.typewriter_scaffold_tmp",
+  "identifier": "com.nipunarora.typewriter",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build",
-    "frontendDist": "../build"
+    "frontendDist": "../dist"
   },
   "app": {
     "windows": [
       {
-        "title": "typewriter_scaffold_tmp",
-        "width": 800,
-        "height": 600
+        "title": "typewriter",
+        "width": 300,
+        "height": 150,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false
       }
     ],
     "security": {

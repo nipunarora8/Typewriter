@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    typewriter_scaffold_tmp_lib::run()
+    typewriter_lib::run()
 }
