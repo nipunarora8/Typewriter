@@ -570,3 +570,31 @@ This section tracks what's actually done vs. still open, to be updated as phases
 - Automated tests do not yet cover the new resize/scale behavior (drag-resize bounds, scale-reset-on-collapse, pinned-when-collapsed) — only manually verified via the `cliclick` self-tests described above.
 
 **How to apply:** before resuming, run `git status` and `git log --oneline` to confirm this still matches reality, then decide whether to commit the pending visual/resize work before starting anything new.
+
+
+## Extension (user-approved 2026-10-04): saved named lists, one active file at a time
+
+The V1 boundary of "exactly one configured Markdown file" is deliberately widened to **several saved named lists with exactly one active (and watched) file at a time**. Everything else in the product boundary is unchanged: Markdown stays the only source of truth, no daily-note templates, no folder scanning, no cloud.
+
+**Implemented**
+- Profile = immutable UUID + display name + one explicit `.md` path, kept in local app config only (never todo content). Legacy `selected_path` migrates into a first profile named "Personal"; theme and window position are preserved.
+- Rust commands: `add_profile`, `rename_profile`, `relink_profile`, `remove_profile` (config only, never deletes the note), `switch_profile`. Paths only ever come from the native picker and go through `validate_selected_path`; the frontend never supplies a raw path. Task mutations resolve the active source internally.
+- Switching mints a fresh source session (old watcher dropped, old session/sequence rejected as stale). The frontend supersedes the old session synchronously, so late results/events from the previous list cannot show under the new list's name.
+- UI: `< NAME >` switcher in the cream strip (chevrons hidden with one list, name truncates with full-text tooltip), gear opens a lightweight list manager (rename inline, relink, two-step remove, add by name + picker). Paper heading shows the list name instead of a date. Per-list drafts and scroll offsets; short fade/slide of paper content only (disabled under `prefers-reduced-motion`); typewriter housing never moves.
+- Missing/inaccessible note: per-list "Retry / Relink note" state with an actionable message; other lists stay navigable.
+- `TYPEWRITER_CONFIG_DIR` overrides the config directory so dev/test runs never touch the real per-user config.
+- Compaction: project `.claude/settings.json` sets `autoCompactEnabled: true`, `autoCompactWindow: 350000` (loaded at session start; `/autocompact 350k` confirmed for Sonnet 5.5).
+
+**Verified (real results)**
+- `cargo test`: 58 passed. `npm run test:unit`: 8 passed. `check`, `lint`, `format:check`: clean.
+- Playwright (mocked native layer): ui 23 + visual 12 passing. The old visual baselines predated the approved redesign (wrong viewport, old look); they were regenerated at the real 380x252 / 380x636 sizes after reviewing each image. New baselines cover second list, long name, missing note, list manager.
+- Native app (`npm run tauri dev`, repo-local fixtures and an isolated config): collapsed/expanded, switching, duplicate task text toggling only the active file on disk, external-edit refresh, missing note then Retry after the file appears, restart restores the active list, per-list drafts (never written to any file), rapid clicks settling on the last request, rename, remove (note file preserved), title-bar/housing drag, edge resize with crisp text, long-list scrolling and per-list scroll restore, legacy-config migration.
+- Bugs found and fixed through native testing: switcher swallowed the title-bar drag region; rename input was not focused; Rust unit-variant errors serialize without a `message`, so users saw "Something unexpected went wrong"; two stale UI tests and all visual baselines predated earlier work.
+
+**Not verified / open**
+- Native picker flows (add list, relink, first-file choose) need a human click; only the Rust validation and the mocked UI paths were exercised.
+- Real Obsidian vault note (`Personal.md`): not touched by automated runs; the user connects it manually.
+- Native `prefers-reduced-motion` and the switch transition itself (no screen recording tool); reduced motion is covered by a browser test only.
+- Linux and VoiceOver: no environment available.
+- Dev-only quirk: a Vite hot reload while expanded resets the webview to collapsed but leaves the native window tall. Restart the app.
+- Expanding near the top of the screen is clamped by macOS (window cannot grow upward past the menu bar).
