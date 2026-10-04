@@ -157,6 +157,7 @@
       {:else if update.kind === 'installing'}
         <span class="updates-text">Installing…</span>
       {:else}
+        <span class="updates-text">v{__APP_VERSION__}</span>
         <button
           type="button"
           class="updates-link"

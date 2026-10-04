@@ -34,7 +34,7 @@ phase-grouped todo content, automated tests for the resize feature.
 
 1. Build once: `export PATH="$HOME/.cargo/bin:$PATH"; npm run tauri build -- --bundles app` (about 2 minutes).
 2. Open the app: `open src-tauri/target/release/bundle/macos/Typewriter.app`. For permanent use, drag `Typewriter.app` into Applications.
-3. The first launch of an unsigned app: right-click it, choose Open, then Open again.
+3. The first launch of an unsigned app: if macOS says it is damaged, run `xattr -dr com.apple.quarantine <path to Typewriter.app>` once.
 4. Click the keyboard to open the sheet. Type a list name (for example `Personal`) and press `Choose where to keep it`. Pick a parent folder such as `Typewriter` (the Mac picker has a `New Folder` button). The app creates `Typewriter/Personal/` and today's note inside it.
 5. Add more lists (Work, Groceries, ...) with the gear (⚙) on the paper: type a name and press `+ add list`. No picker opens again. The new list is created next to your first one, for example `Typewriter/Work/`.
 6. Press the red `+` to start a note named with today's date in the current list's folder.
@@ -159,10 +159,9 @@ for example as a GitHub Release file.
 **Them:**
 
 1. Double-click the `.dmg` and drag Typewriter onto Applications.
-2. Open Typewriter from Launchpad or Spotlight. The first time, right-click
-   the app and choose Open, then Open again.
-3. If macOS says the app is damaged, open Terminal once and run
+2. If macOS says the app is damaged, open Terminal once and run
    `xattr -dr com.apple.quarantine /Applications/Typewriter.app`.
+3. Open Typewriter from Launchpad or Spotlight.
 
 The app is not signed or notarized, which is why step 2 is needed. Removing
 that step requires a paid Apple Developer account. A build only runs on the

@@ -341,9 +341,14 @@
             >
             <ol>
               <li>Open the <code>.dmg</code> and drag Typewriter to Applications.</li>
-              <li>First launch: right-click the app and choose <b>Open</b>.</li>
-              <li>Choose <b>Open</b> again in the dialog.</li>
+              <li>
+                macOS may say the app is &ldquo;damaged&rdquo;. It is not: the app is just unsigned.
+                Run this once in Terminal, then open it normally:
+              </li>
             </ol>
+            <pre
+              class="cmd"
+            ><code>xattr -dr com.apple.quarantine /Applications/Typewriter.app</code></pre>
           </article>
           <article class="dl reveal">
             <h3>Linux <small>x86_64</small></h3>
@@ -356,8 +361,9 @@
           </article>
         </div>
         <p class="note reveal">
-          <b>Unsigned builds.</b> Typewriter is not code-signed or notarized, so macOS asks you to
-          confirm the first launch. You can read every line of the source and build it yourself.
+          <b>Unsigned builds.</b> Typewriter is not code-signed or notarized, so macOS may call it
+          &ldquo;damaged&rdquo; until you run the command above. You can read every line of the
+          source and build it yourself.
         </p>
       </section>
     </main>

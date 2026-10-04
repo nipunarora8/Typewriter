@@ -13,8 +13,13 @@ work with Obsidian. No account and no cloud.
 
 Download the latest file from [Releases](../../releases).
 
-**Mac (Apple Silicon):** open the `.dmg`, drag Typewriter to Applications. The
-first time, right-click the app and choose **Open**.
+**Mac (Apple Silicon):** open the `.dmg`, drag Typewriter to Applications. The app
+is not signed by Apple, so macOS may say it is "damaged". It is not. Run this once
+in Terminal, then open it normally:
+
+```
+xattr -dr com.apple.quarantine /Applications/Typewriter.app
+```
 
 **Linux (x86_64):** download the `.AppImage`, then
 `chmod +x Typewriter*.AppImage && ./Typewriter*.AppImage`. No root needed.
