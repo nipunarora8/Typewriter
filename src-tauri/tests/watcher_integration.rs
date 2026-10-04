@@ -120,11 +120,13 @@ fn debounce_coalesces_rapid_successive_writes_into_fewer_events() {
     }
 
     let mut batches = 0;
-    while rx.recv_timeout(Duration::from_millis(1500)).is_ok() {
+    let mut seen = Vec::new();
+    while let Ok(result) = rx.recv_timeout(Duration::from_millis(1500)) {
         batches += 1;
+        seen.push(format!("{:?}", result.map(|e| e.len())));
     }
     assert!(
         batches < 5,
-        "debounce should coalesce rapid writes into fewer than 5 batches, got {batches}"
+        "debounce should coalesce rapid writes into fewer than 5 batches, got {batches}: {seen:?}"
     );
 }
