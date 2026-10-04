@@ -167,3 +167,12 @@ for example as a GitHub Release file.
 The app is not signed or notarized, which is why step 2 is needed. Removing
 that step requires a paid Apple Developer account. A build only runs on the
 same chip type it was made on (`arm64` is Apple Silicon, `x86_64` is Intel).
+
+## Branches and releases
+
+- `develop` is the working branch: all source, tests and workflows.
+- `main` is for users only: README, license and screenshots. Never merge
+  `develop` into it. Update it with `scripts/publish-main.sh`.
+- To release, tag a commit on `develop`: `git tag v0.1.1 && git push origin v0.1.1`.
+  The Release workflow builds the Mac `.dmg` and the Linux `.AppImage` and
+  attaches them to a GitHub Release.

@@ -40,7 +40,7 @@ folders are. Remove a list in the gear menu and your notes stay.
 
 ## Build it yourself
 
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+The source code lives on the [`develop` branch](https://github.com/nipunarora8/Typewriter/tree/develop). See [docs/DEVELOPMENT.md](https://github.com/nipunarora8/Typewriter/blob/develop/docs/DEVELOPMENT.md).
 
 ## Idea Credits
 
