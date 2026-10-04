@@ -28,8 +28,9 @@
       document.documentElement.classList.add('js')
       try {
         var t = localStorage.getItem('tw-theme')
-        if (t === 'ivory' || t === 'midnight' || t === 'high-contrast')
-          document.documentElement.setAttribute('data-theme', t)
+        if (t !== 'ivory' && t !== 'midnight')
+          t = matchMedia('(prefers-color-scheme: dark)').matches ? 'midnight' : 'ivory'
+        document.documentElement.setAttribute('data-theme', t)
       } catch (e) {}
     </script>
   </head>
@@ -45,17 +46,39 @@
         <a href="#download">Download</a>
         <a href="https://github.com/nipunarora8/Typewriter/tree/develop">Source</a>
       </nav>
-      <div class="themes" role="radiogroup" aria-label="Page theme">
-        <button type="button" role="radio" aria-checked="true" data-set-theme="ivory">
-          <i class="sw sw-ivory" aria-hidden="true"></i>Ivory
-        </button>
-        <button type="button" role="radio" aria-checked="false" data-set-theme="midnight">
-          <i class="sw sw-midnight" aria-hidden="true"></i>Midnight
-        </button>
-        <button type="button" role="radio" aria-checked="false" data-set-theme="high-contrast">
-          <i class="sw sw-hc" aria-hidden="true"></i>High contrast
-        </button>
-      </div>
+      <button
+        type="button"
+        class="theme-toggle"
+        aria-label="Switch to dark theme"
+        aria-pressed="false"
+      >
+        <svg
+          class="i-sun"
+          viewBox="0 0 24 24"
+          width="22"
+          height="22"
+          aria-hidden="true"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
+          <circle cx="12" cy="12" r="4.2" fill="currentColor" />
+          <path
+            d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M5.3 18.7 7 17M17 7l1.7-1.7"
+          />
+        </svg>
+        <svg
+          class="i-moon"
+          viewBox="0 0 24 24"
+          width="22"
+          height="22"
+          aria-hidden="true"
+          fill="currentColor"
+        >
+          <path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1z" />
+        </svg>
+      </button>
     </header>
 
     <main id="main">
@@ -235,7 +258,7 @@
           </article>
 
           <article class="card reveal" id="card-themes">
-            <h3>Three themes</h3>
+            <h3>Light or dark</h3>
             <div class="theme-minis" role="group" aria-label="Preview a theme on this page">
               <button type="button" data-set-theme="ivory" class="tmini t-ivory">
                 <span></span><span></span><span></span>Ivory
@@ -243,12 +266,10 @@
               <button type="button" data-set-theme="midnight" class="tmini t-midnight">
                 <span></span><span></span><span></span>Midnight
               </button>
-              <button type="button" data-set-theme="high-contrast" class="tmini t-hc">
-                <span></span><span></span><span></span>High Contrast
-              </button>
             </div>
             <p>
-              Ivory, Midnight and High Contrast. Try them: these buttons restyle this whole page.
+              Warm Ivory paper or a dark Midnight desk. Try them: these buttons, or the sun in the
+              header, restyle this whole page.
             </p>
           </article>
 

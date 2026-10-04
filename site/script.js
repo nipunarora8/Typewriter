@@ -24,34 +24,27 @@
   }
 
   /* ---------- theme ---------- */
+  var toggle = $('.theme-toggle')
   function setTheme(t) {
     root.setAttribute('data-theme', t)
-    $$('.themes [data-set-theme]').forEach(function (b) {
-      b.setAttribute('aria-checked', String(b.dataset.setTheme === t))
-    })
+    var dark = t === 'midnight'
+    toggle.setAttribute('aria-pressed', String(dark))
+    toggle.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme')
     var m = $('meta[name="theme-color"]')
-    if (m) m.content = { ivory: '#a23b35', midnight: '#14141a', 'high-contrast': '#000000' }[t]
+    if (m) m.content = dark ? '#14141a' : '#a23b35'
     try {
       localStorage.setItem('tw-theme', t)
     } catch (e) {}
   }
+  toggle.addEventListener('click', function () {
+    setTheme(root.getAttribute('data-theme') === 'midnight' ? 'ivory' : 'midnight')
+  })
   $$('[data-set-theme]').forEach(function (b) {
     b.addEventListener('click', function () {
       setTheme(b.dataset.setTheme)
     })
   })
   setTheme(root.getAttribute('data-theme') || 'ivory')
-  var group = $('.themes')
-  group.addEventListener('keydown', function (e) {
-    var order = ['ivory', 'midnight', 'high-contrast'],
-      i = order.indexOf(root.getAttribute('data-theme'))
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') i = (i + 1) % 3
-    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') i = (i + 2) % 3
-    else return
-    e.preventDefault()
-    setTheme(order[i])
-    $('[data-set-theme="' + order[i] + '"]', group).focus()
-  })
 
   /* ---------- scroll reveal ---------- */
   var reveals = $$('.reveal')
