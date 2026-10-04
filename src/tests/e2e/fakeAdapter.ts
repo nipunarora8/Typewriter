@@ -11,7 +11,9 @@
  * mints a fresh session, and writes carrying a stale session are
  * rejected.
  */
-export function installFakeAdapterScript(options: { daily?: boolean | 'empty' } = {}): string {
+export function installFakeAdapterScript(
+  options: { daily?: boolean | 'empty'; update?: string | 'error' } = {},
+): string {
   return `
     (function () {
       let sequence = 0;
@@ -19,6 +21,7 @@ export function installFakeAdapterScript(options: { daily?: boolean | 'empty' } 
       let todosHandler = null;
       let nextProfileNumber = 3;
       const WITH_DAILY = ${options.daily ? 'true' : 'false'};
+      const UPDATE = ${JSON.stringify(options.update ?? null)};
       const DAILY_EMPTY = ${options.daily === 'empty' ? 'true' : 'false'};
 
       const profiles = [
@@ -275,6 +278,13 @@ export function installFakeAdapterScript(options: { daily?: boolean | 'empty' } 
           d.current = dates[target];
           newSession();
           return { document: currentDocument(), error: null, day: dayInfoFor(activeProfileId) };
+        },
+        async checkForUpdate() {
+          if (UPDATE === 'error') throw new Error('offline');
+          return UPDATE ? { version: UPDATE } : null;
+        },
+        async installUpdate() {
+          writeLog.push({ op: 'install-update' });
         },
         async getLeftovers() {
           const d = dailyNotes[activeProfileId];

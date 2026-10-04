@@ -33,6 +33,7 @@
     dismissLeftovers,
     bringOverLeftovers,
   } from './lib/stores/leftovers'
+  import { autoUpdateOnLaunch } from './lib/services/tauri'
   import type { TodoItem } from './lib/types'
 
   let draft = ''
@@ -81,11 +82,14 @@
 
   let resizeUnlisten: (() => void) | undefined
   let resizeDebounceId: ReturnType<typeof setTimeout> | undefined
+  let updateTimer: ReturnType<typeof setTimeout> | undefined
 
   onMount(() => {
     void initializePreferences()
     void profileController.hydrate()
     void initializeTodos()
+    // Let the widget appear first, then look for a newer release.
+    updateTimer = setTimeout(() => void autoUpdateOnLaunch(), 5000)
     void onNativeResize(handleNativeResize).then((unlisten) => {
       resizeUnlisten = unlisten
     })
@@ -95,6 +99,7 @@
     void teardownTodos()
     resizeUnlisten?.()
     if (resizeDebounceId) clearTimeout(resizeDebounceId)
+    if (updateTimer) clearTimeout(updateTimer)
   })
 
   // Drag-resize is a live, session-only convenience: the window's own

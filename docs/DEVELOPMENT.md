@@ -173,6 +173,25 @@ same chip type it was made on (`arm64` is Apple Silicon, `x86_64` is Intel).
 - `develop` is the working branch: all source, tests and workflows.
 - `main` is for users only: README, license and screenshots. Never merge
   `develop` into it. Update it with `scripts/publish-main.sh`.
-- To release, tag a commit on `develop`: `git tag v0.1.1 && git push origin v0.1.1`.
-  The Release workflow builds the Mac `.dmg` and the Linux `.AppImage` and
-  attaches them to a GitHub Release.
+
+### Releasing (and auto-update)
+
+Installed apps check GitHub Releases at launch and update themselves.
+
+1. Bump the version in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`
+   and `package.json` (same number everywhere).
+2. Commit and push `develop`.
+3. Tag and push: `git tag v0.1.1 && git push origin v0.1.1`.
+   The Release workflow checks the tag matches the version, builds the Mac
+   `.dmg` and Linux `.AppImage`, signs the update files and publishes
+   `latest.json`.
+
+One-time setup: the update signing key lives at `~/.tauri/typewriter.key`
+(never commit it; back it up). Add its contents as the GitHub secret
+`TAURI_SIGNING_PRIVATE_KEY`, and the key password as
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (empty string if none). The matching
+public key is in `tauri.conf.json`. If the private key is lost, installed
+apps can no longer update to new versions.
+
+Apps from before the updater was added (0.1.0) cannot update themselves and
+need one manual reinstall.

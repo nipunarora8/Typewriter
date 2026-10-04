@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Profile } from '../types'
+  import { checkForUpdate, installUpdate } from '../services/tauri'
 
   export let profiles: Profile[]
   export let activeProfileId: string | null
@@ -19,6 +20,34 @@
   $: parentName = parentFolder
     ? (parentFolder.split(/[\\/]/).filter(Boolean).pop() ?? parentFolder)
     : null
+
+  type UpdateState =
+    | { kind: 'idle' }
+    | { kind: 'checking' }
+    | { kind: 'current' }
+    | { kind: 'available'; version: string }
+    | { kind: 'installing' }
+    | { kind: 'error' }
+  let update: UpdateState = { kind: 'idle' }
+
+  async function runCheck() {
+    update = { kind: 'checking' }
+    try {
+      const found = await checkForUpdate()
+      update = found ? { kind: 'available', version: found.version } : { kind: 'current' }
+    } catch {
+      update = { kind: 'error' }
+    }
+  }
+
+  async function runInstall() {
+    update = { kind: 'installing' }
+    try {
+      await installUpdate()
+    } catch {
+      update = { kind: 'error' }
+    }
+  }
 
   let renamingId: string | null = null
   let renameDraft = ''
@@ -120,6 +149,27 @@
       />
       <button type="submit" class="add" disabled={!newName.trim()}>+ add list</button>
     </form>
+
+    <div class="updates" aria-live="polite">
+      {#if update.kind === 'available'}
+        <span class="updates-text">Version {update.version} is available.</span>
+        <button type="button" class="add" on:click={runInstall}>Install and restart</button>
+      {:else if update.kind === 'installing'}
+        <span class="updates-text">Installing…</span>
+      {:else}
+        <button
+          type="button"
+          class="updates-link"
+          disabled={update.kind === 'checking'}
+          on:click={runCheck}>Check for updates</button
+        >
+        {#if update.kind === 'checking'}<span class="updates-text">Checking…</span>{/if}
+        {#if update.kind === 'current'}<span class="updates-text">You're up to date.</span>{/if}
+        {#if update.kind === 'error'}<span class="updates-text"
+            >Couldn't check. Try again later.</span
+          >{/if}
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -263,6 +313,34 @@
   .add:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .updates {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-1);
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    color: var(--color-muted-ink);
+  }
+
+  .updates-link {
+    all: unset;
+    cursor: pointer;
+    text-decoration: underline;
+    color: var(--color-ink);
+  }
+
+  .updates-link:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  .updates-link:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
   }
 
   .add {

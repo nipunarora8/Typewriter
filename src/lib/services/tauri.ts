@@ -97,6 +97,10 @@ export interface SwitchResult {
   day: DayInfo
 }
 
+export interface UpdateInfo {
+  version: string
+}
+
 export type Unlisten = () => void
 
 export interface TestAdapter {
@@ -122,6 +126,8 @@ export interface TestAdapter {
   getDayInfo(): Promise<DayInfo>
   getLeftovers(): Promise<LeftoverInfo>
   bringOverLeftovers(args: { revision: string; sourceSession: string }): Promise<TodoDocument>
+  checkForUpdate(): Promise<UpdateInfo | null>
+  installUpdate(): Promise<void>
   onTodosUpdated(handler: (event: TodosUpdatedEvent) => void): Unlisten
   onFileStatus(handler: (event: FileStatusEvent) => void): Unlisten
   onTodosError(handler: (event: AppErrorPayload) => void): Unlisten
@@ -306,4 +312,44 @@ export async function onTodosError(handler: (event: AppErrorPayload) => void): P
   }
   const { listen } = await import('@tauri-apps/api/event')
   return listen<AppErrorPayload>('todos:error', (e) => handler(e.payload))
+}
+
+// The update found by the last check; installing downloads exactly that one.
+let pendingUpdate: { downloadAndInstall: () => Promise<void> } | null = null
+
+/** Ask GitHub Releases whether a newer signed version exists. Only runs when the user asks. */
+export async function checkForUpdate(): Promise<UpdateInfo | null> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.checkForUpdate()
+  const { check } = await import('@tauri-apps/plugin-updater')
+  const update = await check()
+  pendingUpdate = update
+  return update ? { version: update.version } : null
+}
+
+export async function installUpdate(): Promise<void> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.installUpdate()
+  if (!pendingUpdate) return
+  await pendingUpdate.downloadAndInstall()
+  const { relaunch } = await import('@tauri-apps/plugin-process')
+  await relaunch()
+}
+
+/**
+ * Check once shortly after launch and install a newer signed release.
+ * Does nothing in dev builds, browser tests, or when offline.
+ */
+export async function autoUpdateOnLaunch(): Promise<void> {
+  if (testAdapter() || !hasTauriRuntime() || import.meta.env.DEV) return
+  try {
+    const { check } = await import('@tauri-apps/plugin-updater')
+    const update = await check()
+    if (!update) return
+    await update.downloadAndInstall()
+    const { relaunch } = await import('@tauri-apps/plugin-process')
+    await relaunch()
+  } catch {
+    // Offline or GitHub unreachable: try again at the next launch.
+  }
 }

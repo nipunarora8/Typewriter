@@ -2,7 +2,7 @@
 
 A tiny desktop todo widget shaped like a typewriter. Click the keys and a paper
 sheet slides up with your tasks. Your tasks are plain Markdown files, so they
-work with Obsidian. No account, no cloud, no network.
+work with Obsidian. No account and no cloud.
 
 <p>
   <img src="docs/screenshots/collapsed.png" width="260" alt="Typewriter collapsed">
@@ -32,6 +32,12 @@ first time, right-click the app and choose **Open**.
 
 Press `+` on a new day and Typewriter offers to bring over yesterday's
 unfinished tasks. Nothing is created or copied unless you ask.
+
+## Updates
+
+Typewriter checks GitHub for a new version when it starts and updates itself.
+That is the only network request it makes. You can also use **Check for
+updates** in the gear menu.
 
 ## Your data
 

@@ -215,3 +215,37 @@ test('single list hides the chevrons', async ({ page }) => {
   await expect(next(page)).toHaveCount(0)
   await expect(prev(page)).toHaveCount(0)
 })
+
+test.describe('update check', () => {
+  async function manager(page: Page, update?: string) {
+    await page.addInitScript(installFakeAdapterScript({ update }))
+    await page.goto('/')
+    await page.locator('.clickable-area').click()
+    await page.getByRole('button', { name: 'Manage lists' }).click()
+    return page.getByRole('dialog', { name: 'Manage lists' })
+  }
+
+  test('says up to date when there is nothing newer', async ({ page }) => {
+    const dialog = await manager(page)
+    await dialog.getByRole('button', { name: 'Check for updates' }).click()
+    await expect(dialog.getByText("You're up to date.")).toBeVisible()
+  })
+
+  test('offers and installs a newer version only when the user agrees', async ({ page }) => {
+    const dialog = await manager(page, '0.2.0')
+    await dialog.getByRole('button', { name: 'Check for updates' }).click()
+    await expect(dialog.getByText('Version 0.2.0 is available.')).toBeVisible()
+    const before = await hooks(page, (h) => h.writeLog)
+    expect(before.some((e) => e.op === 'install-update')).toBe(false)
+    await dialog.getByRole('button', { name: 'Install and restart' }).click()
+    await expect(dialog.getByText('Installing…')).toBeVisible()
+    const after = await hooks(page, (h) => h.writeLog)
+    expect(after.some((e) => e.op === 'install-update')).toBe(true)
+  })
+
+  test('a failed check shows a calm message', async ({ page }) => {
+    const dialog = await manager(page, 'error')
+    await dialog.getByRole('button', { name: 'Check for updates' }).click()
+    await expect(dialog.getByText("Couldn't check. Try again later.")).toBeVisible()
+  })
+})
