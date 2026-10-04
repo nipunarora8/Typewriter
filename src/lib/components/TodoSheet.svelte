@@ -11,9 +11,16 @@
   export let onToggle: (item: TodoItemType) => void
   export let onAdd: (text: string) => void
   export let onDismissError: () => void
+
+  const title = new Date().toISOString().slice(0, 10)
 </script>
 
 <section id="todo-sheet" class="sheet" aria-label="Todo list">
+  <header class="title-bar">
+    <span class="title-text">··· {title} — TODOS</span>
+    <span class="title-badge" aria-hidden="true"></span>
+  </header>
+
   {#if errorMessage}
     <ErrorNotice message={errorMessage} onDismiss={onDismissError} />
   {/if}
@@ -41,10 +48,38 @@
     height: 100%;
     box-sizing: border-box;
     background: var(--color-paper);
-    border: 1px solid var(--color-paper-edge);
+    border: 2px dashed var(--color-paper-edge);
     border-radius: var(--radius-paper);
     box-shadow: var(--shadow-paper);
     overflow: hidden;
+  }
+
+  .title-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-3) var(--space-2);
+    border-bottom: 1px dashed var(--border-subtle);
+  }
+
+  .title-text {
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--color-ink);
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .title-badge {
+    flex-shrink: 0;
+    width: 0.55rem;
+    height: 0.55rem;
+    background: var(--color-accent);
   }
 
   .list {

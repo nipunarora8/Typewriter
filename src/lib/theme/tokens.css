@@ -5,28 +5,32 @@
    there without adding its default here. */
 
 :root {
-  /* Ivory (default) */
-  --color-surface: #e4ded3;
-  --color-on-surface: #2a2420;
-  --color-on-surface-muted: #7d7467;
-  --color-paper: #fbf7ee;
-  --color-paper-edge: #e9e2d2;
+  /* Ivory (default): oxblood/brick typewriter housing, cream paper */
+  --color-surface: #a23b35;
+  --color-surface-shade: #8a2f2a;
+  --color-on-surface: #f6ead9;
+  --color-on-surface-muted: #e2b9a9;
+  --color-key: #f6ead9;
+  --color-key-ink: #4a2a1f;
+  --color-paper: #fbf3e4;
+  --color-paper-edge: #2a2420;
   --color-ink: #2a2420;
-  --color-muted-ink: #6b6258;
-  --color-accent: #7a2e2e;
-  --color-accent-ink: #fbf7ee;
+  --color-muted-ink: #857a6a;
+  --color-accent: #a23b35;
+  --color-accent-ink: #fbf3e4;
   --color-focus: #2a2420;
-  --color-danger: #8c2b2b;
+  --color-danger: #a23b35;
   --color-success: #3f6b4a;
 
   --border-subtle: #d8cfbb;
   --border-strong: #2a2420;
+  --border-key: transparent;
 
-  --shadow-widget: 0 1px 2px rgba(20, 16, 12, 0.18), 0 6px 16px rgba(20, 16, 12, 0.22);
+  --shadow-widget: 0 1px 2px rgba(20, 16, 12, 0.22), 0 6px 16px rgba(20, 16, 12, 0.3);
   --shadow-paper: 0 2px 4px rgba(20, 16, 12, 0.14), 0 16px 40px rgba(20, 16, 12, 0.28);
 
-  --font-display: 'Iowan Old Style', 'Palatino Linotype', Georgia, 'Times New Roman', serif;
-  --font-body: -apple-system, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-display: 'Courier New', 'Courier', ui-monospace, monospace;
+  --font-body: 'Courier New', 'Courier', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;

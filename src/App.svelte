@@ -91,7 +91,12 @@
 <main class="root" data-widget-mode={$widgetMode}>
   <div class="widget-slot" class:hidden={isExpandedLike}>
     <div bind:this={expandButtonEl} style="width: 100%; height: 100%;">
-      <TypewriterWidget onExpand={handleExpand} expanded={isExpandedLike} />
+      <TypewriterWidget
+        onExpand={handleExpand}
+        expanded={isExpandedLike}
+        doneCount={tasks.filter((t) => t.completed).length}
+        totalCount={tasks.length}
+      />
     </div>
   </div>
 
@@ -184,7 +189,7 @@
     height: 100%;
     box-sizing: border-box;
     background: var(--color-paper);
-    border: 1px solid var(--color-paper-edge);
+    border: 2px dashed var(--color-paper-edge);
     border-radius: var(--radius-paper);
     box-shadow: var(--shadow-paper);
     overflow: hidden;
