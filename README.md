@@ -41,3 +41,7 @@ folders are. Remove a list in the gear menu and your notes stay.
 ## Build it yourself
 
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
+## Idea Credits
+
+[Tina Huang](https://www.youtube.com/@TinaHuang1)
