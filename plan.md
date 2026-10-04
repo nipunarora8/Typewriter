@@ -547,3 +547,26 @@ npm run tauri build
 - `test:unit`: frontend/store/component tests; `test:ui`: mocked browser interaction tests; `test:visual`: deterministic screenshots; `test:native`: real Tauri harness with test-only driver feature and disposable files. Do not put the driver feature in the default production build.
 - Add meaningful tests as features land; scaffold verification must not claim a placeholder test proves file safety or native interoperability. Run the relevant commands and phase-specific manual checks after each phase; run the complete suite at release.
 - Record command, platform/toolchain, result, and evidence location. When a test or native launch is blocked, record the actual reason and remaining check rather than repeatedly upgrading dependencies or marking it passed.
+
+## Status as of 2026-10-04 (post-revision work)
+
+This section tracks what's actually done vs. still open, to be updated as phases close. Verify against `git log --oneline` before trusting it — it can drift.
+
+**Committed (`git log`):**
+- Phase 0, 0A, 1, 2, 3 — scaffold, Markdown parser + write-safety, file watcher, functional Svelte shell. Last commit: `0cea73a test: wire real test:visual screenshot regression suite`.
+
+**Done but NOT yet committed** (uncommitted working-tree changes as of this status update):
+- Visual redesign to match the user's reference screenshot: oxblood/brick typewriter housing, full QWERTY+number-row keyboard with spacebar, dashed-border paper sheet, dark "platen" roller bar between paper and keys (animates together with the paper, not separately), rounded corners handled correctly (native macOS window shadow disabled via `set_shadow(false)` in `lib.rs` — CSS `border-radius` alone left a visible square shadow box otherwise).
+- Fixed window choreography bugs: `resizable:false` was blocking programmatic `setSize` too (now `resizable:true` with min/max pinning instead); window now grows/shrinks *upward* on expand/collapse (position adjusted by height delta) instead of just extending downward, matching the reference's "slides up" feel.
+- Fixed a real Tauri capabilities bug: `core:default` only grants read-only window APIs — `set_size`/`set_min_size`/`set_max_size`/`set_position`/`start_dragging` needed explicit permissions in `src-tauri/capabilities/default.json`, or those calls silently no-op (this was the root cause of "clicking the widget does nothing" and "can't drag the window").
+- Click-vs-drag split on the collapsed widget: only the keypad/counter area is clickable (expand/collapse); the surrounding red housing is a drag region (`data-tauri-drag-region`) so the window can still be moved.
+- **User-resizable window**: dragging any edge/corner resizes the widget while the todo list is open (expanded state only — collapsed widget is pinned to a fixed size via `tauri.conf.json`'s `minWidth`/`minHeight`/`maxWidth`/`maxHeight` plus matching `setMinSize`/`setMaxSize` pinning in `nativeWindow.ts`). Scaling is CSS `font-size`-driven (not `transform: scale()`, which blurred text) so every `rem`-based measurement — fonts, keys, spacing — re-renders crisply at any size. Collapsing always resets the scale back to 1 and the window back to its exact default 380×252 size; nothing about window size is persisted to disk, so every launch starts at the default size regardless of how the user last left it.
+
+**Explicitly deferred / not done:**
+- Full manual native click-through verification beyond what's been screenshot-tested during this session (native file picker end-to-end, real toggle/add through the live UI with a real vault file) — spot-checked via `cliclick`/`screencapture` self-tests during development, not a formal pass.
+- VoiceOver / Linux screen reader checks — manual, not done. No Linux environment available.
+- Phase 5 (packaging: signed macOS build, Debian package, CSP hardening — currently `"csp": null` — privacy statement, strip test-only driver code, release notes). Explicitly deferred by the user until ready to actually distribute/install, not just `npm run tauri dev`.
+- Content/structure of the todo list itself (phase-grouped sections with colored sub-headings like the reference screenshot's "PHASE 1: CONTENT" groups) — explicitly deferred; current parser reads one flat task list under `## Todos`, no sub-heading grouping.
+- Automated tests do not yet cover the new resize/scale behavior (drag-resize bounds, scale-reset-on-collapse, pinned-when-collapsed) — only manually verified via the `cliclick` self-tests described above.
+
+**How to apply:** before resuming, run `git status` and `git log --oneline` to confirm this still matches reality, then decide whether to commit the pending visual/resize work before starting anything new.
