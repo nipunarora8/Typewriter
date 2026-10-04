@@ -79,6 +79,9 @@
     draftOwner = activeId
   }
 
+  // All sizes are in rem, so the scale has to land on the root element.
+  $: document.documentElement.style.fontSize = `${16 * $windowScale}px`
+
   let resizeUnlisten: (() => void) | undefined
   let resizeDebounceId: ReturnType<typeof setTimeout> | undefined
 
@@ -200,7 +203,7 @@
 <main
   class="root"
   data-widget-mode={$widgetMode}
-  style="--collapsed-height: {COLLAPSED_SIZE.height / 16}rem; font-size: {16 * $windowScale}px;"
+  style="--collapsed-height: {COLLAPSED_SIZE.height / 16}rem;"
 >
   <div class="drag-strip" data-tauri-drag-region aria-hidden="true"></div>
 
