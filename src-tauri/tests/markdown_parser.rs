@@ -5,7 +5,7 @@ use typewriter_lib::markdown::{add_task_bytes, parse, toggle_task_bytes, validat
 
 fn fixture(name: &str) -> String {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
+        .join("tests")
         .join("fixtures")
         .join(name);
     fs::read_to_string(path).expect("fixture should exist and be valid UTF-8")

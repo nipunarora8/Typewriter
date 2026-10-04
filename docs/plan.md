@@ -18,7 +18,7 @@ Build a polished, local-first desktop widget for macOS and Debian Linux using **
 Initial Obsidian workspace folder:
 
 ```text
-/Users/nipunarora/obsidian_vault/navel_vault/Typewriter
+<your Obsidian vault>/Typewriter
 ```
 
 V1 deliberately includes exactly one configured Markdown file and one todo list. It does **not** include date-driven daily notes, templates, multiple lists, tags, cloud services, accounts, or sync logic. Those are later extensions; the architecture should leave clean seams for them.
@@ -97,7 +97,7 @@ typewriter/
 │       ├── watcher.rs
 │       ├── errors.rs
 │       └── models.rs
-└── fixtures/
+└── (test fixtures live in src-tauri/tests/fixtures/)
     ├── todos-basic.md
     ├── todos-mixed-content.md
     └── malformed-or-no-todos.md
