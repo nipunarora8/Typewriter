@@ -174,9 +174,10 @@ same chip type it was made on (`arm64` is Apple Silicon, `x86_64` is Intel).
 - `main` is for users only: README, license and screenshots. Never merge
   `develop` into it. Update it with `scripts/publish-main.sh`.
 
-### Releasing (and auto-update)
+### Releasing (and updates)
 
-Installed apps check GitHub Releases at launch and update themselves.
+Installed apps never check for updates on their own. Users press **Check for
+updates** in the gear menu, which reads `latest.json` from the latest GitHub Release.
 
 1. Bump the version in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`
    and `package.json` (same number everywhere).

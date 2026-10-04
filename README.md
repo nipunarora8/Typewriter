@@ -35,9 +35,9 @@ unfinished tasks. Nothing is created or copied unless you ask.
 
 ## Updates
 
-Typewriter checks GitHub for a new version when it starts and updates itself.
-That is the only network request it makes. You can also use **Check for
-updates** in the gear menu.
+Typewriter never connects to the internet on its own. To update, open the gear
+menu and press **Check for updates**. If a newer version exists, press
+**Install and restart**.
 
 ## Your data
 

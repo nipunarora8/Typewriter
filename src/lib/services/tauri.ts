@@ -335,21 +335,3 @@ export async function installUpdate(): Promise<void> {
   const { relaunch } = await import('@tauri-apps/plugin-process')
   await relaunch()
 }
-
-/**
- * Check once shortly after launch and install a newer signed release.
- * Does nothing in dev builds, browser tests, or when offline.
- */
-export async function autoUpdateOnLaunch(): Promise<void> {
-  if (testAdapter() || !hasTauriRuntime() || import.meta.env.DEV) return
-  try {
-    const { check } = await import('@tauri-apps/plugin-updater')
-    const update = await check()
-    if (!update) return
-    await update.downloadAndInstall()
-    const { relaunch } = await import('@tauri-apps/plugin-process')
-    await relaunch()
-  } catch {
-    // Offline or GitHub unreachable: try again at the next launch.
-  }
-}
