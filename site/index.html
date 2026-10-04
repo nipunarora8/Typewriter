@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en" data-theme="ivory">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Typewriter - a tiny todo widget shaped like a typewriter</title>
+    <meta
+      name="description"
+      content="Typewriter is a tiny desktop todo widget shaped like a red typewriter. Tasks are plain Markdown files. No account, no cloud. For macOS (Apple Silicon) and Linux."
+    />
+    <meta name="theme-color" content="#a23b35" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Typewriter - a tiny todo widget shaped like a typewriter" />
+    <meta
+      property="og:description"
+      content="Click the keyboard, a paper sheet slides up with your tasks. Plain Markdown files, no account, no cloud."
+    />
+    <meta property="og:url" content="https://nipunarora8.github.io/Typewriter/" />
+    <meta property="og:image" content="https://nipunarora8.github.io/Typewriter/assets/sheet.png" />
+    <meta
+      property="og:image:alt"
+      content="The Typewriter widget with its paper sheet showing a todo list"
+    />
+    <meta name="twitter:card" content="summary" />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <script>
+      document.documentElement.classList.add('js')
+      try {
+        var t = localStorage.getItem('tw-theme')
+        if (t === 'ivory' || t === 'midnight' || t === 'high-contrast')
+          document.documentElement.setAttribute('data-theme', t)
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="top">
+      <a class="brand" href="#top" aria-label="Typewriter, home"
+        ><span class="badge" aria-hidden="true"></span><span>Typewriter</span></a
+      >
+      <nav aria-label="Primary" class="nav">
+        <a href="#features">Features</a>
+        <a href="#download">Download</a>
+        <a href="https://github.com/nipunarora8/Typewriter/tree/develop">Source</a>
+      </nav>
+      <div class="themes" role="radiogroup" aria-label="Page theme">
+        <button type="button" role="radio" aria-checked="true" data-set-theme="ivory">
+          <i class="sw sw-ivory" aria-hidden="true"></i>Ivory
+        </button>
+        <button type="button" role="radio" aria-checked="false" data-set-theme="midnight">
+          <i class="sw sw-midnight" aria-hidden="true"></i>Midnight
+        </button>
+        <button type="button" role="radio" aria-checked="false" data-set-theme="high-contrast">
+          <i class="sw sw-hc" aria-hidden="true"></i>High contrast
+        </button>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="hero-copy">
+          <p class="eyebrow">A tiny desktop todo widget</p>
+          <h1 id="headline" aria-label="Your todos, on a typewriter.">
+            Your todos, on a typewriter.
+          </h1>
+          <p class="lede">
+            Click the keyboard and a paper sheet slides up with your tasks. They live in plain
+            Markdown files you own, so they work with Obsidian too. No account. No cloud.
+          </p>
+          <div class="cta">
+            <a class="btn" href="#download">Get Typewriter</a>
+            <a class="btn quiet" href="#features">See how it works</a>
+          </div>
+          <p class="fine">
+            macOS (Apple Silicon) and Linux x86_64 &middot; Free &middot; MIT licensed
+          </p>
+        </div>
+
+        <div class="hero-demo">
+          <div class="tw-wrap">
+            <div class="tw" id="tw">
+              <div class="paper-slot" id="paper-slot">
+                <div class="paper-clip">
+                  <section class="sheet" id="todo-sheet" aria-label="Todo sheet demo">
+                    <div class="s-bar">
+                      <span class="s-title" id="s-title">PERSONAL</span>
+                      <span class="s-day">
+                        <button
+                          type="button"
+                          class="s-step"
+                          data-act="prev"
+                          aria-label="Previous note"
+                        >
+                          &lsaquo;
+                        </button>
+                        <span class="s-date" id="s-date">2026-10-05</span>
+                        <button type="button" class="s-step" data-act="next" aria-label="Next note">
+                          &rsaquo;
+                        </button>
+                        <button
+                          type="button"
+                          class="s-new"
+                          data-act="new"
+                          aria-label="Start today's note"
+                        >
+                          +
+                        </button>
+                      </span>
+                      <span class="s-badge" aria-hidden="true"></span>
+                    </div>
+                    <div class="s-banner" id="s-banner" hidden></div>
+                    <ul class="s-list" id="s-list"></ul>
+                    <form class="s-add" id="s-add" autocomplete="off">
+                      <input
+                        id="s-input"
+                        type="text"
+                        maxlength="40"
+                        placeholder="Add a task..."
+                        aria-label="Add a task"
+                      />
+                      <button type="submit" class="s-addbtn">Add</button>
+                    </form>
+                  </section>
+                </div>
+              </div>
+              <div class="housing">
+                <div class="display" role="group" aria-label="List switcher">
+                  <button
+                    type="button"
+                    class="arrow"
+                    data-act="list-prev"
+                    id="lp"
+                    aria-label="Previous list"
+                  >
+                    &lt;
+                  </button>
+                  <span class="d-name" id="d-name" aria-live="polite">PERSONAL</span>
+                  <button
+                    type="button"
+                    class="arrow"
+                    data-act="list-next"
+                    id="ln"
+                    aria-label="Next list"
+                  >
+                    &gt;
+                  </button>
+                </div>
+                <div
+                  class="keys"
+                  id="keys"
+                  role="group"
+                  aria-label="Typewriter keys. Press a key to type on the paper."
+                ></div>
+              </div>
+            </div>
+          </div>
+          <p class="demo-hint">
+            <button
+              type="button"
+              class="link"
+              id="paper-toggle"
+              aria-expanded="true"
+              aria-controls="todo-sheet"
+            >
+              Hide the paper
+            </button>
+            &middot; try the keys, the arrows and the red +
+          </p>
+        </div>
+      </section>
+
+      <section class="features" id="features" aria-labelledby="f-h">
+        <div class="sec-head reveal">
+          <p class="eyebrow">What it does</p>
+          <h2 id="f-h">Small on purpose.</h2>
+          <p class="lede narrow">
+            One widget on your desktop, one folder of notes. That is the whole idea.
+          </p>
+        </div>
+
+        <div class="cards">
+          <article class="card reveal" id="card-md">
+            <h3>Plain Markdown</h3>
+            <pre class="md" aria-label="Example note"><code># 2026-10-05
+- <span class="box" id="md-box1">[ ]</span> Water the plants
+- <span class="box" id="md-box2">[ ]</span> Call mum
+- <span class="box">[ ]</span> Book dentist</code></pre>
+            <p>
+              Every task is a checkbox line in a <code>.md</code> file. Open the folder in Obsidian,
+              grep it, sync it with whatever you like.
+            </p>
+          </article>
+
+          <article class="card reveal" id="card-notes">
+            <h3>A note per day</h3>
+            <ul class="files" aria-label="Example note files">
+              <li>2026-10-03.md</li>
+              <li>2026-10-04.md</li>
+              <li class="newfile" id="newfile">2026-10-05.md</li>
+            </ul>
+            <p>
+              Each list is a folder of <code>YYYY-MM-DD.md</code> notes. The red
+              <b class="plus">+</b> starts today's note. Step back through older days with the
+              arrows.
+            </p>
+          </article>
+
+          <article class="card reveal" id="card-left">
+            <h3>Bring over leftovers</h3>
+            <div class="mini-banner" aria-hidden="true">
+              <span>2 unfinished from 2026-10-04</span>
+              <span class="pill" id="pill">Bring them over</span>
+            </div>
+            <p>
+              Did not finish yesterday? One press carries the unfinished tasks into today's note. Or
+              say "Not now" and start clean.
+            </p>
+          </article>
+
+          <article class="card reveal" id="card-lists">
+            <h3>Lists, one click away</h3>
+            <div class="mini-display" role="group" aria-label="List switcher example">
+              <button type="button" class="arrow" id="m-prev" aria-label="Previous list">
+                &lt;
+              </button>
+              <span id="m-name" aria-live="polite">PERSONAL</span>
+              <button type="button" class="arrow" id="m-next" aria-label="Next list">&gt;</button>
+            </div>
+            <p>
+              Work, personal, reading: each list is its own folder. The
+              <code>&lt; NAME &gt;</code> arrows above the keys switch between them.
+            </p>
+          </article>
+
+          <article class="card reveal" id="card-themes">
+            <h3>Three themes</h3>
+            <div class="theme-minis" role="group" aria-label="Preview a theme on this page">
+              <button type="button" data-set-theme="ivory" class="tmini t-ivory">
+                <span></span><span></span><span></span>Ivory
+              </button>
+              <button type="button" data-set-theme="midnight" class="tmini t-midnight">
+                <span></span><span></span><span></span>Midnight
+              </button>
+              <button type="button" data-set-theme="high-contrast" class="tmini t-hc">
+                <span></span><span></span><span></span>High Contrast
+              </button>
+            </div>
+            <p>
+              Ivory, Midnight and High Contrast. Try them: these buttons restyle this whole page.
+            </p>
+          </article>
+
+          <article class="card reveal" id="card-private">
+            <h3>Private and offline</h3>
+            <p class="zero" aria-hidden="true">
+              <b>0</b> accounts <b>0</b> servers <b>0</b> trackers
+            </p>
+            <p>
+              Your tasks never leave your disk. Typewriter makes no network call unless you press
+              "Check for updates".
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="shots" aria-labelledby="s-h">
+        <div class="sec-head reveal">
+          <p class="eyebrow">The real thing</p>
+          <h2 id="s-h">Screenshots</h2>
+        </div>
+        <div class="shot-row">
+          <figure class="reveal">
+            <img
+              src="assets/collapsed.png"
+              width="380"
+              height="252"
+              loading="lazy"
+              alt="Typewriter collapsed: a red typewriter with a cream list display and round keys"
+            />
+            <figcaption>Collapsed, it is just a typewriter.</figcaption>
+          </figure>
+          <figure class="reveal">
+            <img
+              src="assets/sheet.png"
+              width="380"
+              height="636"
+              loading="lazy"
+              alt="Typewriter with the paper sheet open, showing a task list above the keys"
+            />
+            <figcaption>Click the keys: the paper slides up.</figcaption>
+          </figure>
+          <figure class="reveal">
+            <img
+              src="assets/leftovers.png"
+              width="380"
+              height="636"
+              loading="lazy"
+              alt="Typewriter offering to bring over one unfinished task from yesterday"
+            />
+            <figcaption>Bring yesterday's leftovers over.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="download" id="download" aria-labelledby="d-h">
+        <div class="sec-head reveal">
+          <p class="eyebrow">Download</p>
+          <h2 id="d-h">Put one on your desk.</h2>
+          <p class="lede narrow">
+            Free and open source. Both builds come from the latest GitHub release.
+          </p>
+        </div>
+        <div class="dl-grid">
+          <article class="dl reveal">
+            <h3>macOS <small>Apple Silicon</small></h3>
+            <a class="btn big" href="https://github.com/nipunarora8/Typewriter/releases/latest"
+              >Download the .dmg</a
+            >
+            <ol>
+              <li>Open the <code>.dmg</code> and drag Typewriter to Applications.</li>
+              <li>First launch: right-click the app and choose <b>Open</b>.</li>
+              <li>Choose <b>Open</b> again in the dialog.</li>
+            </ol>
+          </article>
+          <article class="dl reveal">
+            <h3>Linux <small>x86_64</small></h3>
+            <a class="btn big" href="https://github.com/nipunarora8/Typewriter/releases/latest"
+              >Download the .AppImage</a
+            >
+            <p class="step">Then run it. No root needed:</p>
+            <pre class="cmd"><code>chmod +x Typewriter*.AppImage
+./Typewriter*.AppImage</code></pre>
+          </article>
+        </div>
+        <p class="note reveal">
+          <b>Unsigned builds.</b> Typewriter is not code-signed or notarized, so macOS asks you to
+          confirm the first launch. You can read every line of the source and build it yourself.
+        </p>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p class="credit">
+        Idea Credits: <a href="https://www.youtube.com/@TinaHuang1">Tina Huang</a>
+      </p>
+      <p>
+        MIT License &middot;
+        <a href="https://github.com/nipunarora8/Typewriter/tree/develop">Source on GitHub</a>
+        &middot; <a href="https://github.com/nipunarora8/Typewriter/releases/latest">Releases</a>
+      </p>
+      <p class="fine">
+        This page sets no cookies, runs no analytics and makes no external requests.
+      </p>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
