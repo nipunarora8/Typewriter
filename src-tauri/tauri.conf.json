@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "typewriter",
+  "productName": "Typewriter",
   "version": "0.1.0",
   "identifier": "com.nipunarora.typewriter",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "typewriter",
+        "title": "Typewriter",
         "width": 380,
         "height": 252,
         "minWidth": 380,
@@ -23,7 +23,8 @@
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": false,
-        "skipTaskbar": false
+        "skipTaskbar": false,
+        "visibleOnAllWorkspaces": true
       }
     ],
     "security": {
