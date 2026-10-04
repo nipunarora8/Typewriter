@@ -36,6 +36,11 @@ pub fn run() {
                 // and let the CSS box-shadow (which does follow the
                 // rounded corners) stand in for it.
                 let _ = main_window.set_shadow(false);
+                // Linux window managers take the taskbar/window icon from the
+                // window itself; set it from the bundled app icon.
+                if let Some(icon) = app.default_window_icon() {
+                    let _ = main_window.set_icon(icon.clone());
+                }
             }
             Ok(())
         })
