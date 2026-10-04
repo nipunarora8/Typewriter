@@ -9,7 +9,7 @@
     COLLAPSED_SIZE,
     EXPANDED_SIZE,
     onNativeResize,
-    readCurrentScale,
+    readScaleAndFixAspect,
   } from './lib/services/nativeWindow'
   import { initializePreferences, windowScale } from './lib/stores/preferences'
   import {
@@ -116,7 +116,7 @@
     // windows are pinned to a fixed size, so a resize event there is
     // always our own programmatic call, not a user drag.
     if (!isExpandedLike) return
-    const measured = await readCurrentScale(EXPANDED_SIZE)
+    const measured = await readScaleAndFixAspect(EXPANDED_SIZE)
     if (measured === null) return
     if (Math.abs(measured - $windowScale) < 0.01) return
     windowScale.set(measured)

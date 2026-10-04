@@ -15,7 +15,7 @@ export const COLLAPSED_SIZE: LogicalSize = { width: 380, height: 252 }
 export const EXPANDED_SIZE: LogicalSize = { width: 380, height: 636 }
 
 export const MIN_SCALE = 0.5
-export const MAX_SCALE = 1.6
+export const MAX_SCALE = 1.2
 
 /**
  * Default scale for this screen: the open widget should take about half
@@ -127,6 +127,26 @@ export async function readCurrentScale(baseSize: LogicalSize): Promise<number | 
   const logicalWidth = outer.width / dpiScale
   const rawScale = logicalWidth / baseSize.width
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, rawScale))
+}
+
+/**
+ * Like `readCurrentScale`, but also snaps the window back to the base
+ * aspect ratio. The scale comes from the width; a drag that changes
+ * only the height (or a diagonal drag) would otherwise leave the
+ * content scaled to the width while the window clips it vertically.
+ */
+export async function readScaleAndFixAspect(baseSize: LogicalSize): Promise<number | null> {
+  const scale = await readCurrentScale(baseSize)
+  if (scale === null) return null
+  const { getCurrentWindow } = await import('@tauri-apps/api/window')
+  const win = getCurrentWindow()
+  const dpiScale = await win.scaleFactor()
+  const outer = await win.outerSize()
+  const expectedHeight = baseSize.height * scale
+  if (Math.abs(outer.height / dpiScale - expectedHeight) > 2) {
+    await requestNativeSize(baseSize, scale, true)
+  }
+  return scale
 }
 
 export async function onNativeResize(handler: () => void): Promise<() => void> {
