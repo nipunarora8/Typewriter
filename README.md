@@ -23,33 +23,60 @@ Implemented so far:
 - User-resizable window while the todo sheet is open; collapsing always
   resets to the default size
 
-- Saved named lists with `< NAME >` navigation (see below)
+- Saved named lists with `<  NAME  >` navigation in the cream display above the keys (see below)
 
 Deferred: theme switcher UI, Linux verification, packaging (Phase 5),
 phase-grouped todo content, automated tests for the resize feature.
 
+## Quick start (Mac)
+
+1. Build once: `export PATH="$HOME/.cargo/bin:$PATH"; npm run tauri build -- --bundles app` (about 2 minutes).
+2. Open the app: `open src-tauri/target/release/bundle/macos/typewriter.app`. For permanent use, drag `typewriter.app` into Applications.
+3. The first launch of an unsigned app: right-click it, choose Open, then Open again.
+4. Click the keyboard to open the sheet. Type a list name (for example `Personal`) and press `Choose where to keep it`. Pick a parent folder such as `Typewriter` (the Mac picker has a `New Folder` button). The app creates `Typewriter/Personal/` and today's note inside it.
+5. Add more lists (Work, Groceries, ...) with the gear (⚙) on the paper: type a name and press `+ add list`. No picker opens again. The new list is created next to your first one, for example `Typewriter/Work/`.
+6. Press the red `+` to start a note named with today's date in the current list's folder.
+7. If you see "Typewriter isn't allowed to open that file", press `Remove this list` and add it again.
+
 ## Lists
 
-Each list is a saved profile: a name plus one Markdown file you pick. Only
-the active list is read, watched, and written; the Markdown file stays the
-only copy of your tasks. Profiles live in the app config
-(`config.json` in the OS app config dir), never the todo text.
+A list is either a **daily folder** or a **single file**. Only the active
+list's current note is read, watched and written; Markdown stays the only
+copy of your tasks. Profiles live in the app config (`config.json` in the
+OS app config dir), never the todo text.
 
-- **First start:** open the sheet and choose a Markdown file (for example
-  `Personal.md` in your Obsidian vault). It becomes the first list, named
-  after the file.
-- **Switch:** click `<` / `>` next to the list name (wraps at the ends;
-  hidden when you have one list). Unsent text in the add box stays with its
-  own list.
-- **Manage:** click the gear. Click a name to rename it, `relink` to point it
-  at a different file, `remove` (then `confirm remove`) to forget it — the
-  Markdown file is never deleted. To add a list, type a name and press
-  `+ add list`, then pick its file.
-- **Missing note:** if a list's file is gone, that list shows a `Retry` /
-  `Relink note` panel. Other lists keep working. The app never recreates a
-  missing note.
-- **Upgrading:** an older single-file config becomes the first list
-  ("Personal") automatically.
+**Every list is a folder** of dated notes. When you add a list called `Work`
+and pick `Typewriter` as the parent, the app creates `Typewriter/Work/` and
+`2026-10-05.md` inside it (an existing folder or note is reused, never
+overwritten). The note starts as `# Work — 2026-10-05`, a blank line, then
+`## Todos`.
+
+- Press the red `+` in the paper header any time to create (or open) today's
+  note. It is the only way new notes appear. The app never creates one by
+  itself.
+- **Leftovers:** when you press `+` and the previous day had unfinished
+  tasks, a one-line banner says `N unfinished from <date>` with `Bring them
+over` and `Not now`. Bringing them over copies the unchecked tasks into
+  today's note and never changes the earlier note. Nothing is offered
+  automatically, and nothing pops up at midnight.
+- `‹` / `›` next to the date step to older or newer existing notes.
+- If the app stays open past midnight it keeps showing the old day until you
+  press `+`.
+- **Switch lists:** `<` / `>` in the cream display on the typewriter housing,
+  just above the keys. It works collapsed and expanded, wraps at the ends,
+  and the arrows are hidden with one list. Switching never opens, closes,
+  moves or resizes the window. The done count (`1/3`) sits beside the name.
+  Unsent text in the add box stays with its own list and day.
+- **Open/close the sheet:** press the keyboard artwork, or Escape while open.
+- **Manage:** the gear in the paper header. Click a name to rename it,
+  `relink` to point it at another folder, `remove` to forget it. Your notes
+  are never deleted.
+- **Unavailable folder:** the sheet offers `Browse for folder`, `Retry` and
+  `Remove this list`.
+- **Upgrading:** older single-file lists keep working but can no longer be
+  added from the interface.
+
+Example layout: `Typewriter/Personal/`, `Typewriter/Work/`, `Typewriter/Groceries/`. A list you rarely use (Groceries) just gets a note when you press `+`.
 
 Set `TYPEWRITER_CONFIG_DIR` to run against a throwaway config (used for
 testing; the real config is never touched).
@@ -100,3 +127,31 @@ legacy-config migration. Not verified: the native file picker dialogs
 The frontend never calls `@tauri-apps/api` directly outside
 `nativeWindow.ts`, so Playwright tests can run against the plain Vite dev
 server with a mocked native layer.
+
+## Launch like a normal app
+
+After building, copy the app into your Applications folder once:
+
+```sh
+cp -R src-tauri/target/release/bundle/macos/typewriter.app ~/Applications/Typewriter.app
+```
+
+Then press `Cmd + Space`, type `Typewriter` and press Enter. To keep it in the
+Dock, right-click its icon while it runs and choose Options > Keep in Dock.
+To start it at login: System Settings > General > Login Items > `+` > Typewriter.
+
+## Sharing it with other people
+
+The app is not signed or notarized, so macOS blocks it on other Macs at first.
+
+1. Build the installer: `npm run tauri build -- --bundles dmg`. The file appears
+   in `src-tauri/target/release/bundle/dmg/`.
+2. Send that `.dmg` (for example as a GitHub Release asset).
+3. The other person opens it, drags Typewriter to Applications, then
+   right-clicks the app and chooses Open (once). If macOS says it is damaged,
+   run `xattr -dr com.apple.quarantine /Applications/Typewriter.app`.
+
+Building is per CPU type: a build on an Apple Silicon Mac only runs on Apple
+Silicon. For a no-warning install you need an Apple Developer account (paid)
+to sign and notarize the app. Windows and Linux builds must be made on those
+systems.

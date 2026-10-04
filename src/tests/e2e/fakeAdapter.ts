@@ -11,13 +11,15 @@
  * mints a fresh session, and writes carrying a stale session are
  * rejected.
  */
-export function installFakeAdapterScript(): string {
+export function installFakeAdapterScript(options: { daily?: boolean | 'empty' } = {}): string {
   return `
     (function () {
       let sequence = 0;
       let sessionCounter = 0;
       let todosHandler = null;
       let nextProfileNumber = 3;
+      const WITH_DAILY = ${options.daily ? 'true' : 'false'};
+      const DAILY_EMPTY = ${options.daily === 'empty' ? 'true' : 'false'};
 
       const profiles = [
         { id: 'p-personal', displayName: 'Personal', path: '/fake/vault/Typewriter/Personal.md' },
@@ -33,18 +35,70 @@ export function installFakeAdapterScript(): string {
           { lineId: 'g:1:1', lineIndex: 1, text: 'Buy oat milk', completed: false, indent: '' },
         ],
       };
+      // Daily lists: profileId -> { current: 'YYYY-MM-DD' | null, dates: { date: tasks[] } }
+      const dailyNotes = {};
+      if (WITH_DAILY) {
+        profiles.push({
+          id: 'p-work',
+          displayName: 'Work',
+          path: '/fake/vault/Work/2026-10-04.md',
+          folder: '/fake/vault/Work',
+        });
+        dailyNotes['p-work'] = {
+          current: '2026-10-04',
+          dates: {
+            '2026-10-03': [
+              { lineId: 'w3:0:0', lineIndex: 0, text: 'Yesterday task', completed: false, indent: '' },
+            ],
+            '2026-10-04': [
+              { lineId: 'w4:0:0', lineIndex: 0, text: 'Work task today', completed: false, indent: '' },
+            ],
+          },
+        };
+      }
+      if (WITH_DAILY && DAILY_EMPTY) dailyNotes['p-work'] = { current: null, dates: {} };
       const missing = {};
       let activeProfileId = 'p-personal';
       let sourceSession = 'fake-session-0';
       let switchDelayMs = 0;
       const writeLog = [];
+      const pickerCalls = [];
 
+      function sortedDates(id) {
+        return Object.keys(dailyNotes[id].dates).sort();
+      }
+      function dayInfoFor(id) {
+        const d = id && dailyNotes[id];
+        if (!d) return { isDaily: false, date: null, hasOlder: false, hasNewer: false };
+        const dates = sortedDates(id);
+        const i = d.current ? dates.indexOf(d.current) : -1;
+        return {
+          isDaily: true,
+          date: i >= 0 ? d.current : null,
+          hasOlder: i >= 0 ? i > 0 : dates.length > 0,
+          hasNewer: i >= 0 && i < dates.length - 1,
+        };
+      }
       function activeTasks() {
+        const d = dailyNotes[activeProfileId];
+        if (d) return (d.current && d.dates[d.current]) || [];
         return tasksByProfile[activeProfileId] || [];
+      }
+      function setActiveTasks(tasks) {
+        const d = dailyNotes[activeProfileId];
+        if (d) d.dates[d.current] = tasks;
+        else tasksByProfile[activeProfileId] = tasks;
       }
       function activePath() {
         const p = profiles.find((x) => x.id === activeProfileId);
-        return p ? p.path : null;
+        if (!p) return null;
+        const d = dailyNotes[p.id];
+        if (d) return p.folder + '/' + (d.current ? d.current + '.md' : '.typewriter-no-note.md');
+        return p.path;
+      }
+      function activeDate() {
+        const d = dailyNotes[activeProfileId];
+        return d ? d.current : null;
       }
       function currentDocument() {
         return {
@@ -94,19 +148,31 @@ export function installFakeAdapterScript(): string {
         },
         async toggleTodo(args) {
           assertSession(args);
-          writeLog.push({ profileId: activeProfileId, op: 'toggle', lineId: args.lineId });
+          writeLog.push({
+            profileId: activeProfileId,
+            date: activeDate(),
+            op: 'toggle',
+            lineId: args.lineId,
+          });
           sequence += 1;
-          tasksByProfile[activeProfileId] = activeTasks().map((t) =>
-            t.lineId === args.lineId ? { ...t, completed: args.completed } : t,
+          setActiveTasks(
+            activeTasks().map((t) =>
+              t.lineId === args.lineId ? { ...t, completed: args.completed } : t,
+            ),
           );
           return currentDocument();
         },
         async addTodo(args) {
           assertSession(args);
-          writeLog.push({ profileId: activeProfileId, op: 'add', text: args.text });
+          writeLog.push({
+            profileId: activeProfileId,
+            date: activeDate(),
+            op: 'add',
+            text: args.text,
+          });
           sequence += 1;
           const tasks = activeTasks();
-          tasksByProfile[activeProfileId] = [
+          setActiveTasks([
             ...tasks,
             {
               lineId: 'fake:' + sequence,
@@ -115,7 +181,7 @@ export function installFakeAdapterScript(): string {
               completed: false,
               indent: '',
             },
-          ];
+          ]);
           return currentDocument();
         },
         async setPreferences() {},
@@ -154,13 +220,95 @@ export function installFakeAdapterScript(): string {
           if (switchDelayMs) await sleep(switchDelayMs);
           activeProfileId = args.profileId;
           newSession();
-          if (missing[args.profileId]) {
+          const daily = dailyNotes[args.profileId];
+          if (daily) {
+            const dates = sortedDates(args.profileId);
+            daily.current = dates.length ? dates[dates.length - 1] : null;
+          }
+          if (missing[args.profileId] || (daily && !daily.current)) {
             return {
               document: null,
               error: { category: 'file-missing', message: 'That file could not be found.' },
+              day: dayInfoFor(args.profileId),
             };
           }
-          return { document: currentDocument(), error: null };
+          return { document: currentDocument(), error: null, day: dayInfoFor(args.profileId) };
+        },
+        async addDailyProfile(args) {
+          if (!/^[^./\\\\:][^/\\\\:]*$/.test(args.displayName)) throw { category: 'invalid-profile-name' };
+          const id = 'p-new-' + nextProfileNumber++;
+          // Same rule as the backend: next to the latest folder list, else a picked parent.
+          const latest = profiles.filter((p) => p.folder).pop();
+          const parent = latest ? latest.folder.replace(/\\/[^/]*$/, '') : '/fake/Typewriter';
+          pickerCalls.push(latest ? 'none' : 'parent');
+          profiles.push({
+            id,
+            displayName: args.displayName,
+            path: parent + '/' + args.displayName + '/' + args.date + '.md',
+            folder: parent + '/' + args.displayName,
+          });
+          dailyNotes[id] = { current: args.date, dates: {} };
+          dailyNotes[id].dates[args.date] = [];
+          writeLog.push({ profileId: id, op: 'create', date: args.date });
+          activeProfileId = id;
+          newSession();
+          return { document: currentDocument(), error: null, day: dayInfoFor(id) };
+        },
+        async createTodayNote(args) {
+          const d = dailyNotes[activeProfileId];
+          if (!d) throw { category: 'not-daily-list' };
+          if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(args.date)) throw { category: 'invalid-date' };
+          writeLog.push({ profileId: activeProfileId, op: 'create', date: args.date });
+          if (!d.dates[args.date]) d.dates[args.date] = [];
+          d.current = args.date;
+          newSession();
+          return { document: currentDocument(), error: null, day: dayInfoFor(activeProfileId) };
+        },
+        async stepDay(args) {
+          if (switchDelayMs) await sleep(switchDelayMs);
+          const d = dailyNotes[activeProfileId];
+          if (!d) throw { category: 'not-daily-list' };
+          const dates = sortedDates(activeProfileId);
+          const i = d.current ? dates.indexOf(d.current) : -1;
+          const target = i >= 0 ? i + (args.delta < 0 ? -1 : 1) : args.delta < 0 ? dates.length - 1 : -1;
+          if (target < 0 || target >= dates.length) throw { category: 'no-such-day' };
+          d.current = dates[target];
+          newSession();
+          return { document: currentDocument(), error: null, day: dayInfoFor(activeProfileId) };
+        },
+        async getLeftovers() {
+          const d = dailyNotes[activeProfileId];
+          if (!d || !d.current) return { fromDate: null, tasks: [] };
+          const dates = sortedDates(activeProfileId);
+          const i = dates.indexOf(d.current);
+          if (i <= 0) return { fromDate: null, tasks: [] };
+          const from = dates[i - 1];
+          return {
+            fromDate: from,
+            tasks: d.dates[from].filter((t) => !t.completed).map((t) => t.text),
+          };
+        },
+        async bringOverLeftovers(args) {
+          assertSession(args);
+          const d = dailyNotes[activeProfileId];
+          const dates = sortedDates(activeProfileId);
+          const from = dates[dates.indexOf(d.current) - 1];
+          const have = activeTasks().map((t) => t.text);
+          let tasks = activeTasks();
+          for (const t of d.dates[from].filter((x) => !x.completed)) {
+            if (have.includes(t.text)) continue;
+            tasks = [
+              ...tasks,
+              { lineId: 'carry:' + tasks.length, lineIndex: tasks.length, text: t.text, completed: false, indent: '' },
+            ];
+          }
+          writeLog.push({ profileId: activeProfileId, date: d.current, op: 'bring-over', from });
+          sequence += 1;
+          setActiveTasks(tasks);
+          return currentDocument();
+        },
+        async getDayInfo() {
+          return dayInfoFor(activeProfileId);
         },
         onTodosUpdated(handler) {
           todosHandler = handler;
@@ -207,8 +355,13 @@ export function installFakeAdapterScript(): string {
           switchDelayMs = ms;
         },
         writeLog: writeLog,
+        pickerCalls: pickerCalls,
         tasksFor: function (profileId) {
-          return tasksByProfile[profileId];
+          const d = dailyNotes[profileId];
+          return d ? d.dates : tasksByProfile[profileId];
+        },
+        setDailyDates: function (profileId, dates) {
+          dailyNotes[profileId].dates = dates;
         },
       };
     })();

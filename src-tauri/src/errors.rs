@@ -60,9 +60,21 @@ pub enum AppError {
     ProfileNotFound,
 
     #[error(
-        "List names can't be empty, longer than 80 characters, or contain control characters."
+        "List names can't be empty, longer than 80 characters, start with a dot, or contain / \\ : or control characters."
     )]
     InvalidProfileName,
+
+    #[error("That path isn't a folder.")]
+    NotDirectory,
+
+    #[error("That isn't a valid date.")]
+    InvalidDate,
+
+    #[error("There is no note for that day.")]
+    NoSuchDay,
+
+    #[error("This list isn't a daily folder list.")]
+    NotDailyList,
 
     #[error("Something unexpected went wrong.")]
     Internal,

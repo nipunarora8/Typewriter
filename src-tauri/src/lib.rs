@@ -57,6 +57,12 @@ pub fn run() {
             commands::relink_profile,
             commands::remove_profile,
             commands::switch_profile,
+            commands::add_daily_profile,
+            commands::create_today_note,
+            commands::step_day,
+            commands::get_day_info,
+            commands::get_leftovers,
+            commands::bring_over_leftovers,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

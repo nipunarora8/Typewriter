@@ -4,20 +4,31 @@
   export let profiles: Profile[]
   export let activeProfileId: string | null
   export let onClose: () => void
-  export let onAdd: (name: string) => void
+  export let onAdd: (name: string, kind: 'file' | 'daily') => void
   export let onRename: (profileId: string, name: string) => void
   export let onRelink: (profileId: string) => void
   export let onRemove: (profileId: string) => void
+
+  // New lists are created next to the existing folder lists.
+  $: parentFolder =
+    [...profiles]
+      .reverse()
+      .find((p) => p.folder)
+      ?.folder?.replace(/\/[^/]*$/, '') ?? null
+  // Only the last folder name is shown; the full path is in the tooltip.
+  $: parentName = parentFolder
+    ? (parentFolder.split(/[\\/]/).filter(Boolean).pop() ?? parentFolder)
+    : null
 
   let renamingId: string | null = null
   let renameDraft = ''
   let newName = ''
   let confirmingRemoveId: string | null = null
 
-  function submitAdd() {
+  function submitAdd(kind: 'file' | 'daily') {
     const name = newName.trim()
     if (!name) return
-    onAdd(name)
+    onAdd(name, kind)
     newName = ''
   }
 
@@ -71,6 +82,7 @@
             <button type="button" class="row-name" on:click={() => startRename(p)}>
               {p.displayName}
             </button>
+            {#if p.folder}<span class="row-tag">daily</span>{/if}
           {/if}
           <button type="button" class="row-action" on:click={() => onRelink(p.id)}>relink</button>
           {#if confirmingRemoveId === p.id}
@@ -95,7 +107,10 @@
         </li>
       {/each}
     </ul>
-    <form class="add-form" on:submit|preventDefault={submitAdd}>
+    {#if parentFolder}
+      <p class="where" title={parentFolder}>New lists are created in “{parentName}”</p>
+    {/if}
+    <form class="add-form" on:submit|preventDefault={() => submitAdd('daily')}>
       <input
         class="rename-input"
         placeholder="New list name"
@@ -217,8 +232,30 @@
     color: var(--color-danger);
   }
 
+  .where {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.65rem;
+    color: var(--color-muted-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .row-tag {
+    flex-shrink: 0;
+    font-family: var(--font-body);
+    font-size: 0.65rem;
+    color: var(--color-muted-ink);
+  }
+
+  .add-form .rename-input {
+    flex: 1 1 100%;
+  }
+
   .add-form {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-1);
     align-items: center;
   }

@@ -1,37 +1,46 @@
 <script lang="ts">
-  export let onExpand: () => void
+  import type { Profile } from '../types'
+  import ProfileSwitcher from './ProfileSwitcher.svelte'
+
+  export let onExpand: (event: MouseEvent) => void
   export let expanded: boolean
   export let dockedBelowSheet = false
   export let doneCount = 0
   export let totalCount = 0
+  export let profiles: Profile[] = []
+  export let activeProfileId: string | null = null
+  export let onNavigate: (delta: 1 | -1) => void = () => {}
+  export let expandButton: HTMLButtonElement | undefined = undefined
 
   const rows = ['1234567890', 'QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM!?']
 </script>
 
 <div class="typewriter" class:docked={dockedBelowSheet} data-tauri-drag-region>
-  <button
-    type="button"
-    class="clickable-area"
-    aria-expanded={expanded}
-    aria-controls="todo-sheet"
-    on:click={onExpand}
-  >
-    <span class="counter" aria-hidden="true">
-      <span class="plus">+</span>
-      <span class="count">{totalCount > 0 ? `${doneCount}/${totalCount} done` : 'no tasks'}</span>
-      <span class="plus">+</span>
-    </span>
-    <span class="keys" aria-hidden="true">
-      {#each rows as row}
-        <span class="key-row">
-          {#each row as letter}
-            <span class="key">{letter}</span>
-          {/each}
-        </span>
-      {/each}
-      <span class="spacebar"></span>
-    </span>
-  </button>
+  <div class="stack" data-tauri-drag-region>
+    <div class="display" data-tauri-drag-region>
+      <ProfileSwitcher {profiles} {activeProfileId} {onNavigate} {doneCount} {totalCount} />
+    </div>
+    <button
+      type="button"
+      class="clickable-area"
+      aria-label={expanded ? 'Close todo list' : 'Open todo list'}
+      aria-expanded={expanded}
+      aria-controls="todo-sheet"
+      bind:this={expandButton}
+      on:click={onExpand}
+    >
+      <span class="keys" aria-hidden="true">
+        {#each rows as row}
+          <span class="key-row">
+            {#each row as letter}
+              <span class="key">{letter}</span>
+            {/each}
+          </span>
+        {/each}
+        <span class="spacebar"></span>
+      </span>
+    </button>
+  </div>
 </div>
 
 <style>
@@ -53,13 +62,19 @@
     border-radius: 0 0 var(--radius-widget) var(--radius-widget);
   }
 
+  .stack {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+  }
+
   .clickable-area {
     all: unset;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.35rem;
     cursor: pointer;
   }
 
@@ -68,31 +83,20 @@
     outline-offset: 3px;
   }
 
-  .counter {
+  .display {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--space-2);
-    width: 92%;
+    box-sizing: border-box;
+    align-self: center;
+    /* Zero intrinsic width: the keys set the stack width, so a long list
+       name truncates instead of stretching the housing. */
+    width: 0;
+    min-width: 92%;
     padding: 0.5rem var(--space-2);
     background: var(--color-key);
     border: 2px solid var(--color-key-ink);
     border-radius: var(--radius-control);
-  }
-
-  .plus {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--color-key-ink);
-    line-height: 1;
-  }
-
-  .count {
-    font-family: var(--font-body);
-    font-size: 0.8rem;
-    color: var(--color-key-ink);
-    letter-spacing: 0.02em;
-    white-space: nowrap;
   }
 
   .keys {

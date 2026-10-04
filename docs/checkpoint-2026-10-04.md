@@ -51,9 +51,40 @@ Config: `.claude/settings.json`, `.gitignore`.
   missing note + retry recovery, restart restores active list, per-list
   drafts, rapid clicks, rename, remove (file preserved).
 
+## Placement correction (later 2026-10-04)
+
+Switcher moved from the paper header into the cream display above the keys,
+usable collapsed and expanded. `TypewriterWidget` now renders the display
+(`ProfileSwitcher`: prev, name, count, next) as a sibling of the expansion
+button (keyboard artwork, aria-label Open/Close todo list); nothing
+interactive is nested in a button. Paper header: name heading + gear + drag
+region + red badge. App passes profiles/navigate to the widget and collapse
+focus returns to the real expansion button. Display width is zero-intrinsic so
+long names truncate instead of widening the housing.
+
+Results (exit 0): check, lint, format:check, unit 8, ui 43, visual 15, build,
+cargo 58 (pinned toolchain; put `~/.cargo/bin` first on PATH). Visual diffs
+were limited to the cream display and paper heading before baselines were
+regenerated; the long-name baseline first showed the box stretching and was
+fixed.
+
+Evidence: `.claude-scratch/evidence-display-nav/` (before/after, native n01,
+n06, n07, gates.txt). Native verification partial (see plan.md): interrupted
+when another person began using the machine. Re-run unchanged-geometry, drag,
+resize, keyboard, long name, missing note and restart checks natively.
+
+## Daily folder lists (later 2026-10-04)
+
+Personal/Work-style lists are folders of `YYYY-MM-DD.md` notes; `+` in the
+paper header creates today's note from a template; `‹ ›` steps days; Groceries
+stays a single file. Details and the safety rules are in plan.md ("daily
+folder lists"). Results (exit 0): check, lint, format:check, unit 8, ui 55,
+visual 17, build, cargo 68. Native run with a daily folder NOT done (machine
+in use). Evidence: `.claude-scratch/evidence-display-nav/gates3.txt`.
+
 ## Remaining
 
-- Native drag + resize re-check with switcher, legacy-config migration run,
-  reduced-motion (native), scroll state, update plan.md/README.md, commit.
-- Not verifiable here: native picker flows (add/relink need a human click),
-  Linux, real vault.
+- Native re-check listed above, plus a native daily-folder run (picker, `+`, stepping, restart); native picker flows; Linux; VoiceOver;
+  native reduced motion; transition recording. Not fully accepted on macOS
+  or Debian.
+- Not committed; nothing pushed.

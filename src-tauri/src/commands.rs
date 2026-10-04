@@ -4,7 +4,10 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, State};
 use uuid::Uuid;
 
-use crate::config::{validate_selected_path, AppConfig, Profile};
+use crate::config::{
+    daily_note_template, list_daily_notes, newest_note_or_placeholder, validate_date,
+    validate_selected_folder, validate_selected_path, AppConfig, Profile,
+};
 use crate::errors::{AppError, AppResult};
 use crate::markdown::{self, hash_bytes};
 use crate::models::{TodoDocument, TodoItem};
@@ -146,6 +149,7 @@ pub struct ProfileSummary {
     pub id: String,
     pub display_name: String,
     pub path: PathBuf,
+    pub folder: Option<PathBuf>,
 }
 
 impl From<&Profile> for ProfileSummary {
@@ -154,6 +158,7 @@ impl From<&Profile> for ProfileSummary {
             id: p.id.clone(),
             display_name: p.display_name.clone(),
             path: p.path.clone(),
+            folder: p.folder.clone(),
         }
     }
 }
@@ -227,6 +232,7 @@ pub async fn choose_todo_file(
         id: Uuid::new_v4().to_string(),
         display_name: default_display_name(&validated),
         path: validated.clone(),
+        folder: None,
     };
     inner.active_profile_id = Some(profile.id.clone());
     inner.profiles.push(profile);
@@ -385,6 +391,7 @@ pub async fn add_profile(
         id: Uuid::new_v4().to_string(),
         display_name: name,
         path: validated.clone(),
+        folder: None,
     };
     inner.active_profile_id = Some(profile.id.clone());
     inner.profiles.push(profile);
@@ -423,19 +430,41 @@ pub async fn relink_profile(
 ) -> AppResult<Option<TodoDocument>> {
     use tauri_plugin_dialog::DialogExt;
 
+    let is_daily = {
+        let inner = state.0.lock().unwrap();
+        inner
+            .profiles
+            .iter()
+            .find(|p| p.id == profile_id)
+            .ok_or(AppError::ProfileNotFound)?
+            .folder
+            .is_some()
+    };
+
     let (tx, rx) = std::sync::mpsc::channel();
-    app.dialog()
-        .file()
-        .add_filter("Markdown", &["md"])
-        .pick_file(move |picked| {
+    if is_daily {
+        app.dialog().file().pick_folder(move |picked| {
             let _ = tx.send(picked);
         });
+    } else {
+        app.dialog()
+            .file()
+            .add_filter("Markdown", &["md"])
+            .pick_file(move |picked| {
+                let _ = tx.send(picked);
+            });
+    }
     let picked = rx.recv().map_err(|_| AppError::Internal)?;
     let Some(file_path) = picked else {
         return Ok(None);
     };
     let path = file_path.into_path().map_err(|_| AppError::Internal)?;
-    let validated = validate_selected_path(&path)?;
+    let (validated, new_folder) = if is_daily {
+        let folder = validate_selected_folder(&path)?;
+        (newest_note_or_placeholder(&folder), Some(folder))
+    } else {
+        (validate_selected_path(&path)?, None)
+    };
 
     let mut inner = state.0.lock().unwrap();
     let profile = inner
@@ -444,6 +473,9 @@ pub async fn relink_profile(
         .find(|p| p.id == profile_id)
         .ok_or(AppError::ProfileNotFound)?;
     profile.path = validated.clone();
+    if new_folder.is_some() {
+        profile.folder = new_folder;
+    }
 
     if inner.active_profile_id.as_deref() == Some(profile_id.as_str()) {
         return activate_and_load(&app, &mut inner, validated).map(Some);
@@ -509,18 +541,364 @@ pub fn switch_profile(
         .find(|p| p.id == profile_id)
         .cloned()
         .ok_or(AppError::ProfileNotFound)?;
-    inner.active_profile_id = Some(profile.id.clone());
+    // A daily list always opens on its newest note, so a note created
+    // elsewhere (for example by Obsidian) today is picked up.
+    let open_at = match &profile.folder {
+        Some(folder) => newest_note_or_placeholder(folder),
+        None => profile.path.clone(),
+    };
+    activate_profile_at(&app, &mut inner, &profile.id, open_at)
+}
 
-    match activate_and_load(&app, &mut inner, profile.path) {
-        Ok(doc) => Ok(SwitchResult {
+/// Unfinished tasks carried over from the previous day's note.
+#[derive(serde::Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct LeftoverInfo {
+    pub from_date: Option<String>,
+    pub tasks: Vec<String>,
+}
+
+/// The unchecked task texts in a note, in order (nesting is flattened).
+fn unchecked_texts(content: &str) -> Vec<String> {
+    markdown::parse(content)
+        .tasks
+        .into_iter()
+        .filter(|t| !t.completed)
+        .map(|t| t.text)
+        .collect()
+}
+
+/// The existing dated note just before the one currently shown, if any.
+fn previous_note(profile: &Profile) -> Option<PathBuf> {
+    let folder = profile.folder.as_ref()?;
+    let notes = list_daily_notes(folder);
+    let i = notes.iter().position(|p| *p == profile.path)?;
+    i.checked_sub(1).map(|j| notes[j].clone())
+}
+
+fn date_of(path: &std::path::Path) -> Option<String> {
+    path.file_stem()
+        .and_then(|s| s.to_str())
+        .map(str::to_string)
+}
+
+/// What could be brought over into the note currently shown: the unchecked
+/// tasks of the previous existing note. Read-only.
+#[tauri::command]
+pub fn get_leftovers(state: State<AppState>) -> LeftoverInfo {
+    let inner = state.0.lock().unwrap();
+    let Some(profile) = inner.active_profile() else {
+        return LeftoverInfo::default();
+    };
+    let Some(prev) = previous_note(profile) else {
+        return LeftoverInfo::default();
+    };
+    let Ok(content) = std::fs::read_to_string(&prev) else {
+        return LeftoverInfo::default();
+    };
+    LeftoverInfo {
+        from_date: date_of(&prev),
+        tasks: unchecked_texts(&content),
+    }
+}
+
+/// Append the previous note's unchecked tasks to the shown note in one
+/// guarded write. The previous note is only read. Tasks whose text is
+/// already present are skipped, so pressing it twice never duplicates.
+#[tauri::command]
+pub fn bring_over_leftovers(
+    state: State<AppState>,
+    revision: String,
+    source_session: String,
+) -> AppResult<TodoDocument> {
+    let mut inner = state.0.lock().unwrap();
+    let path = inner.active_path().ok_or(AppError::NoFileSelected)?;
+    if source_session != inner.source_session {
+        return Err(AppError::StaleSession);
+    }
+    let profile = inner
+        .active_profile()
+        .cloned()
+        .ok_or(AppError::NoFileSelected)?;
+    let prev = previous_note(&profile).ok_or(AppError::NoSuchDay)?;
+    let prev_content = std::fs::read_to_string(&prev).map_err(|_| AppError::NoSuchDay)?;
+    let carry = unchecked_texts(&prev_content);
+
+    let outcome = guarded_replace(&path, &revision, |content| {
+        let existing: Vec<String> = markdown::parse(content)
+            .tasks
+            .into_iter()
+            .map(|t| t.text)
+            .collect();
+        let mut updated = content.to_string();
+        for text in &carry {
+            let Ok(valid) = markdown::validate_task_text(text) else {
+                continue;
+            };
+            if existing.contains(&valid) {
+                continue;
+            }
+            updated = markdown::add_task_bytes(&updated, &valid)?;
+        }
+        Ok(updated)
+    })?;
+
+    finish_mutation(&mut inner, &path, outcome)
+}
+
+/// What the UI needs to render the day row of a daily list.
+#[derive(serde::Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct DayInfo {
+    pub is_daily: bool,
+    /// `YYYY-MM-DD` of the note currently shown, if it is a dated note.
+    pub date: Option<String>,
+    pub has_older: bool,
+    pub has_newer: bool,
+}
+
+fn day_info_for(profile: &Profile) -> DayInfo {
+    let Some(folder) = &profile.folder else {
+        return DayInfo::default();
+    };
+    let notes = list_daily_notes(folder);
+    let current = notes.iter().position(|p| *p == profile.path);
+    DayInfo {
+        is_daily: true,
+        date: current.and_then(|i| {
+            notes[i]
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .map(str::to_string)
+        }),
+        has_older: match current {
+            Some(i) => i > 0,
+            None => !notes.is_empty(),
+        },
+        has_newer: matches!(current, Some(i) if i + 1 < notes.len()),
+    }
+}
+
+#[tauri::command]
+pub fn get_day_info(state: State<AppState>) -> DayInfo {
+    let inner = state.0.lock().unwrap();
+    inner.active_profile().map(day_info_for).unwrap_or_default()
+}
+
+/// Point the profile at `new_path`, make it active and load it. Like
+/// `switch_profile`, a missing note is reported inside the result.
+fn activate_profile_at(
+    app: &AppHandle,
+    inner: &mut AppStateInner,
+    profile_id: &str,
+    new_path: PathBuf,
+) -> AppResult<SwitchResult> {
+    let profile = inner
+        .profiles
+        .iter_mut()
+        .find(|p| p.id == profile_id)
+        .ok_or(AppError::ProfileNotFound)?;
+    profile.path = new_path.clone();
+    inner.active_profile_id = Some(profile_id.to_string());
+    let loaded = activate_and_load(app, inner, new_path);
+    let day = inner.active_profile().map(day_info_for).unwrap_or_default();
+    Ok(match loaded {
+        Ok(doc) => SwitchResult {
             document: Some(doc),
             error: None,
-        }),
-        Err(err) => Ok(SwitchResult {
+            day,
+        },
+        Err(err) => SwitchResult {
             document: None,
             error: Some(err),
-        }),
+            day,
+        },
+    })
+}
+
+/// A list name becomes a folder name, so it must be a single safe path
+/// component: no separators, no leading dot, not `.`/`..`.
+fn validate_folder_name(name: &str) -> AppResult<String> {
+    let name = validate_display_name(name)?;
+    if name.starts_with('.') || name.contains(['/', '\\', ':']) {
+        return Err(AppError::InvalidProfileName);
     }
+    Ok(name)
+}
+
+/// Where new lists are created: the parent of the most recently added
+/// folder list, so all lists live side by side.
+fn default_parent(profiles: &[Profile]) -> Option<PathBuf> {
+    profiles
+        .iter()
+        .rev()
+        .find_map(|p| p.folder.as_ref().and_then(|f| f.parent()))
+        .map(PathBuf::from)
+}
+
+/// Create (or reuse) `<parent>/<name>/` and today's dated note inside it.
+/// An existing folder or note is reused untouched; a file or symlink in the
+/// folder's place is rejected.
+fn prepare_list_folder(
+    parent: &std::path::Path,
+    name: &str,
+    date: &str,
+) -> AppResult<(PathBuf, PathBuf)> {
+    let folder_name = validate_folder_name(name)?;
+    validate_date(date)?;
+    let dir = parent.join(&folder_name);
+    match std::fs::symlink_metadata(&dir) {
+        Ok(_) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            std::fs::create_dir(&dir).map_err(|e| match e.kind() {
+                std::io::ErrorKind::PermissionDenied => AppError::PermissionDenied,
+                _ => AppError::Internal,
+            })?;
+        }
+        Err(_) => return Err(AppError::PermissionDenied),
+    }
+    let folder = validate_selected_folder(&dir)?;
+    let note = create_daily_note(&folder, &folder_name, date)?;
+    Ok((folder, note))
+}
+
+/// Add a list: a name, created inside the folder that already holds the
+/// other lists, or inside a parent folder picked through the native dialog
+/// for the first list. Creates `<parent>/<name>/` with today's dated note inside it
+/// (reusing both if they already exist) and opens it.
+#[tauri::command]
+pub async fn add_daily_profile(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    display_name: String,
+    date: String,
+) -> AppResult<SwitchResult> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let name = validate_folder_name(&display_name)?;
+    validate_date(&date)?;
+
+    // Later lists go next to the existing ones, so the picker is only
+    // needed for the very first list (or if that location is gone).
+    let remembered = {
+        let inner = state.0.lock().unwrap();
+        default_parent(&inner.profiles)
+    }
+    .and_then(|p| validate_selected_folder(&p).ok());
+
+    let parent = match remembered {
+        Some(parent) => parent,
+        None => {
+            let (tx, rx) = std::sync::mpsc::channel();
+            app.dialog().file().pick_folder(move |picked| {
+                let _ = tx.send(picked);
+            });
+            let picked = rx.recv().map_err(|_| AppError::Internal)?;
+            let Some(parent_path) = picked else {
+                return Err(AppError::NoFileSelected);
+            };
+            let path = parent_path.into_path().map_err(|_| AppError::Internal)?;
+            validate_selected_folder(&path)?
+        }
+    };
+    let (folder, note) = prepare_list_folder(&parent, &name, &date)?;
+
+    let mut inner = state.0.lock().unwrap();
+    let existing = inner
+        .profiles
+        .iter()
+        .find(|p| p.folder.as_ref() == Some(&folder))
+        .map(|p| p.id.clone());
+    let id = match existing {
+        Some(id) => id,
+        None => {
+            let profile = Profile {
+                id: Uuid::new_v4().to_string(),
+                display_name: name,
+                path: note.clone(),
+                folder: Some(folder),
+            };
+            let id = profile.id.clone();
+            inner.profiles.push(profile);
+            id
+        }
+    };
+    activate_profile_at(&app, &mut inner, &id, note)
+}
+
+/// Create (or just open, if it already exists) the note for `date` in
+/// the active daily list's folder. This is the only place the app creates
+/// a note, and only in response to the user pressing `+`. The file is
+/// created with `create_new`, so an existing note is never overwritten.
+#[tauri::command]
+pub fn create_today_note(
+    app: AppHandle,
+    state: State<AppState>,
+    date: String,
+) -> AppResult<SwitchResult> {
+    validate_date(&date)?;
+    let mut inner = state.0.lock().unwrap();
+    let profile = inner
+        .active_profile()
+        .cloned()
+        .ok_or(AppError::NoFileSelected)?;
+    let folder = profile.folder.clone().ok_or(AppError::NotDailyList)?;
+    let path = create_daily_note(&folder, &profile.display_name, &date)?;
+    activate_profile_at(&app, &mut inner, &profile.id, path)
+}
+
+fn create_daily_note(folder: &std::path::Path, list_name: &str, date: &str) -> AppResult<PathBuf> {
+    use std::io::Write;
+
+    validate_date(date)?;
+    validate_selected_folder(folder)?;
+    let path = folder.join(format!("{date}.md"));
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+    {
+        Ok(mut file) => {
+            file.write_all(daily_note_template(list_name, date).as_bytes())
+                .map_err(|_| AppError::Internal)?;
+            Ok(path)
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(path),
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+            Err(AppError::PermissionDenied)
+        }
+        Err(_) => Err(AppError::Internal),
+    }
+}
+
+/// Step the active daily list to an older (`delta < 0`) or newer
+/// (`delta > 0`) existing note. Wraps nothing: past either end it fails
+/// with `NoSuchDay`.
+#[tauri::command]
+pub fn step_day(app: AppHandle, state: State<AppState>, delta: i32) -> AppResult<SwitchResult> {
+    let mut inner = state.0.lock().unwrap();
+    let profile = inner
+        .active_profile()
+        .cloned()
+        .ok_or(AppError::NoFileSelected)?;
+    let folder = profile.folder.clone().ok_or(AppError::NotDailyList)?;
+    let notes = list_daily_notes(&folder);
+    let target = pick_neighbor(&notes, &profile.path, delta)?;
+    activate_profile_at(&app, &mut inner, &profile.id, target)
+}
+
+fn pick_neighbor(notes: &[PathBuf], current: &PathBuf, delta: i32) -> AppResult<PathBuf> {
+    let step = if delta < 0 { -1i64 } else { 1 };
+    let index = match notes.iter().position(|p| p == current) {
+        Some(i) => i as i64 + step,
+        None if step < 0 => notes.len() as i64 - 1,
+        None => -1,
+    };
+    usize::try_from(index)
+        .ok()
+        .and_then(|i| notes.get(i))
+        .cloned()
+        .ok_or(AppError::NoSuchDay)
 }
 
 #[derive(serde::Serialize)]
@@ -528,6 +906,7 @@ pub fn switch_profile(
 pub struct SwitchResult {
     pub document: Option<TodoDocument>,
     pub error: Option<AppError>,
+    pub day: DayInfo,
 }
 
 fn validate_display_name(name: &str) -> AppResult<String> {
@@ -583,6 +962,7 @@ mod tests {
             id: "p1".to_string(),
             display_name: "Personal".to_string(),
             path: dir.path().join("Personal.md"),
+            folder: None,
         };
         inner.profiles.push(profile.clone());
         inner.active_profile_id = Some("p1".to_string());
@@ -628,16 +1008,19 @@ mod tests {
                 id: "a".to_string(),
                 display_name: "A".to_string(),
                 path: PathBuf::from("/a.md"),
+                folder: None,
             },
             Profile {
                 id: "b".to_string(),
                 display_name: "B".to_string(),
                 path: PathBuf::from("/b.md"),
+                folder: None,
             },
             Profile {
                 id: "c".to_string(),
                 display_name: "C".to_string(),
                 path: PathBuf::from("/c.md"),
+                folder: None,
             },
         ];
         let removed_index = profiles.iter().position(|p| p.id == "a").unwrap();
@@ -651,11 +1034,13 @@ mod tests {
                 id: "x".to_string(),
                 display_name: "X".to_string(),
                 path: PathBuf::from("/x.md"),
+                folder: None,
             },
             Profile {
                 id: "y".to_string(),
                 display_name: "Y".to_string(),
                 path: PathBuf::from("/y.md"),
+                folder: None,
             },
         ];
         let removed_index2 = profiles2.iter().position(|p| p.id == "y").unwrap();
@@ -673,6 +1058,7 @@ mod tests {
             id: "p1".to_string(),
             display_name: "Personal".to_string(),
             path: dir.path().join("Personal.md"),
+            folder: None,
         });
         inner.active_profile_id = Some("p1".to_string());
 
@@ -687,5 +1073,198 @@ mod tests {
         // check — this is the same mechanism file-reselect already used,
         // just re-verified here for the profile-switch path.
         assert_ne!(old_session, inner.source_session);
+    }
+
+    #[test]
+    fn create_daily_note_writes_template_once_and_never_overwrites() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = create_daily_note(dir.path(), "Work", "2026-10-04").unwrap();
+        assert_eq!(path, dir.path().join("2026-10-04.md"));
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(text, "# Work — 2026-10-04\n\n## Todos\n\n");
+
+        // Existing content is preserved when the note already exists.
+        std::fs::write(&path, "# Work\n\n## Todos\n\n- [ ] keep me\n").unwrap();
+        let again = create_daily_note(dir.path(), "Work", "2026-10-04").unwrap();
+        assert_eq!(again, path);
+        assert!(std::fs::read_to_string(&path).unwrap().contains("keep me"));
+    }
+
+    #[test]
+    fn create_daily_note_rejects_bad_dates_and_missing_folders() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(matches!(
+            create_daily_note(dir.path(), "Work", "../evil"),
+            Err(AppError::InvalidDate)
+        ));
+        assert!(create_daily_note(&dir.path().join("nope"), "Work", "2026-10-04").is_err());
+        assert!(std::fs::read_dir(dir.path()).unwrap().next().is_none());
+    }
+
+    #[test]
+    fn fresh_daily_note_accepts_a_task() {
+        let text = daily_note_template("Work", "2026-10-04");
+        let updated = markdown::add_task_bytes(&text, "first task").unwrap();
+        let parsed = markdown::parse(&updated);
+        assert_eq!(parsed.tasks.len(), 1);
+        assert_eq!(parsed.tasks[0].text, "first task");
+    }
+
+    #[test]
+    fn neighbor_stepping_stops_at_both_ends() {
+        let notes: Vec<PathBuf> = ["a", "b", "c"].iter().map(|n| PathBuf::from(n)).collect();
+        assert_eq!(
+            pick_neighbor(&notes, &PathBuf::from("b"), -1).unwrap(),
+            PathBuf::from("a")
+        );
+        assert_eq!(
+            pick_neighbor(&notes, &PathBuf::from("b"), 1).unwrap(),
+            PathBuf::from("c")
+        );
+        assert!(pick_neighbor(&notes, &PathBuf::from("a"), -1).is_err());
+        assert!(pick_neighbor(&notes, &PathBuf::from("c"), 1).is_err());
+        // From the placeholder, older reaches the newest note; newer has nowhere to go.
+        assert_eq!(
+            pick_neighbor(&notes, &PathBuf::from("none"), -1).unwrap(),
+            PathBuf::from("c")
+        );
+        assert!(pick_neighbor(&notes, &PathBuf::from("none"), 1).is_err());
+    }
+
+    #[test]
+    fn day_info_reports_neighbors_for_daily_lists_only() {
+        let dir = tempfile::tempdir().unwrap();
+        for n in ["2026-10-03.md", "2026-10-04.md"] {
+            std::fs::write(dir.path().join(n), "x").unwrap();
+        }
+        let mut profile = Profile {
+            id: "d".into(),
+            display_name: "Work".into(),
+            path: dir.path().join("2026-10-04.md"),
+            folder: Some(dir.path().to_path_buf()),
+        };
+        let info = day_info_for(&profile);
+        assert!(info.is_daily && info.has_older && !info.has_newer);
+        assert_eq!(info.date.as_deref(), Some("2026-10-04"));
+
+        profile.folder = None;
+        assert!(!day_info_for(&profile).is_daily);
+    }
+
+    #[test]
+    fn list_folder_is_created_under_the_parent_with_todays_note() {
+        let parent = tempfile::tempdir().unwrap();
+        let (folder, note) = prepare_list_folder(parent.path(), "Personal", "2026-10-05").unwrap();
+        assert!(folder.ends_with("Personal") && folder.is_dir());
+        assert_eq!(note, folder.join("2026-10-05.md"));
+        assert_eq!(
+            std::fs::read_to_string(&note).unwrap(),
+            "# Personal — 2026-10-05\n\n## Todos\n\n"
+        );
+
+        // Reusing the same list keeps existing content.
+        std::fs::write(&note, "# Personal\n\n## Todos\n\n- [ ] keep\n").unwrap();
+        let (_, again) = prepare_list_folder(parent.path(), "Personal", "2026-10-05").unwrap();
+        assert!(std::fs::read_to_string(again).unwrap().contains("keep"));
+    }
+
+    #[test]
+    fn list_names_that_are_not_safe_folder_names_are_rejected() {
+        let parent = tempfile::tempdir().unwrap();
+        for bad in ["../x", "a/b", ".hidden", "..", "a:b", "a\\b", ""] {
+            assert!(
+                matches!(
+                    prepare_list_folder(parent.path(), bad, "2026-10-05"),
+                    Err(AppError::InvalidProfileName)
+                ),
+                "{bad}"
+            );
+        }
+        assert!(std::fs::read_dir(parent.path()).unwrap().next().is_none());
+    }
+
+    #[test]
+    fn a_file_where_the_list_folder_belongs_is_rejected_untouched() {
+        let parent = tempfile::tempdir().unwrap();
+        std::fs::write(parent.path().join("Work"), "oops").unwrap();
+        assert!(matches!(
+            prepare_list_folder(parent.path(), "Work", "2026-10-05"),
+            Err(AppError::NotDirectory)
+        ));
+        assert_eq!(
+            std::fs::read_to_string(parent.path().join("Work")).unwrap(),
+            "oops"
+        );
+    }
+
+    #[test]
+    fn unchecked_texts_keep_order_and_skip_done_tasks() {
+        let content = "# T\n\n## Todos\n\n- [ ] a\n- [x] b\n- [ ] c\n";
+        assert_eq!(unchecked_texts(content), vec!["a", "c"]);
+        assert!(unchecked_texts("# T\n\n## Todos\n\n- [x] done\n").is_empty());
+    }
+
+    #[test]
+    fn previous_note_is_the_one_just_before_the_shown_day() {
+        let dir = tempfile::tempdir().unwrap();
+        for n in ["2026-10-01.md", "2026-10-03.md", "2026-10-04.md"] {
+            std::fs::write(dir.path().join(n), "x").unwrap();
+        }
+        let mut profile = Profile {
+            id: "d".into(),
+            display_name: "Work".into(),
+            path: dir.path().join("2026-10-04.md"),
+            folder: Some(dir.path().to_path_buf()),
+        };
+        // A gap (no 10-02) is fine: the nearest earlier note is used.
+        assert_eq!(
+            previous_note(&profile),
+            Some(dir.path().join("2026-10-03.md"))
+        );
+        profile.path = dir.path().join("2026-10-01.md");
+        assert_eq!(previous_note(&profile), None);
+    }
+
+    #[test]
+    fn carried_tasks_land_in_a_fresh_note_without_duplicates() {
+        let today = daily_note_template("Work", "2026-10-05");
+        let mut updated = today.clone();
+        for t in ["call dentist", "buy milk", "call dentist"] {
+            let existing: Vec<String> = markdown::parse(&updated)
+                .tasks
+                .into_iter()
+                .map(|t| t.text)
+                .collect();
+            if !existing.contains(&t.to_string()) {
+                updated = markdown::add_task_bytes(&updated, t).unwrap();
+            }
+        }
+        let texts: Vec<_> = markdown::parse(&updated)
+            .tasks
+            .into_iter()
+            .map(|t| t.text)
+            .collect();
+        assert_eq!(texts, vec!["call dentist", "buy milk"]);
+    }
+
+    #[test]
+    fn new_lists_default_to_the_parent_of_the_latest_folder_list() {
+        let list = |name: &str, folder: Option<&str>| Profile {
+            id: name.into(),
+            display_name: name.into(),
+            path: PathBuf::from("/x.md"),
+            folder: folder.map(PathBuf::from),
+        };
+        assert_eq!(default_parent(&[]), None);
+        assert_eq!(default_parent(&[list("Single", None)]), None);
+        let profiles = vec![
+            list("Personal", Some("/vault/Typewriter/Personal")),
+            list("Single", None),
+            list("Work", Some("/vault/Typewriter/Work")),
+        ];
+        assert_eq!(
+            default_parent(&profiles),
+            Some(PathBuf::from("/vault/Typewriter"))
+        );
     }
 }

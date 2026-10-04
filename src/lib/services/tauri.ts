@@ -12,7 +12,7 @@
  * This flag does not exist in production builds/typings — it is a
  * test-only seam, not a runtime feature.
  */
-import type { Profile, TodoDocument } from '../types'
+import type { DayInfo, Profile, TodoDocument } from '../types'
 
 export type UpdateSource = 'startup' | 'user-write' | 'external-change'
 
@@ -40,7 +40,8 @@ const CATEGORY_MESSAGES: Record<string, string> = {
   'not-markdown': "That file isn't a Markdown (.md) file.",
   'is-directory': 'That path is a directory, not a file.',
   'file-missing': 'This note could not be found. It may have been moved or deleted.',
-  'permission-denied': "The widget doesn't have permission to read or write that file.",
+  'permission-denied':
+    "Typewriter isn't allowed to open that file. If it is in Documents, allow it in System Settings > Privacy & Security > Files and Folders, or remove this list in the gear menu and set up again.",
   'invalid-utf8': "The file contains invalid UTF-8 text and can't be read safely.",
   'symlink-rejected': "Linked files (symlinks) aren't supported for the selected note.",
   'unsupported-file-type': "That isn't a regular file.",
@@ -56,7 +57,11 @@ const CATEGORY_MESSAGES: Record<string, string> = {
     "The save finished, but the app couldn't confirm the result. Reload before trying again.",
   'profile-not-found': 'That saved list no longer exists.',
   'invalid-profile-name':
-    "List names can't be empty, longer than 80 characters, or contain control characters.",
+    "List names can't be empty, longer than 80 characters, start with a dot, or contain / \\ : or control characters.",
+  'not-directory': "That path isn't a folder.",
+  'invalid-date': "That isn't a valid date.",
+  'no-such-day': 'There is no note for that day.',
+  'not-daily-list': "This list isn't a daily folder list.",
   internal: 'Something unexpected went wrong.',
 }
 
@@ -81,9 +86,15 @@ export interface AppStateSnapshot {
   activeProfileId: string | null
 }
 
+export interface LeftoverInfo {
+  fromDate: string | null
+  tasks: string[]
+}
+
 export interface SwitchResult {
   document: TodoDocument | null
   error: AppErrorPayload | null
+  day: DayInfo
 }
 
 export type Unlisten = () => void
@@ -105,6 +116,12 @@ export interface TestAdapter {
   relinkProfile(args: { profileId: string }): Promise<TodoDocument | null>
   removeProfile(args: { profileId: string }): Promise<TodoDocument | null>
   switchProfile(args: { profileId: string }): Promise<SwitchResult>
+  addDailyProfile(args: { displayName: string; date: string }): Promise<SwitchResult>
+  createTodayNote(args: { date: string }): Promise<SwitchResult>
+  stepDay(args: { delta: number }): Promise<SwitchResult>
+  getDayInfo(): Promise<DayInfo>
+  getLeftovers(): Promise<LeftoverInfo>
+  bringOverLeftovers(args: { revision: string; sourceSession: string }): Promise<TodoDocument>
   onTodosUpdated(handler: (event: TodosUpdatedEvent) => void): Unlisten
   onFileStatus(handler: (event: FileStatusEvent) => void): Unlisten
   onTodosError(handler: (event: AppErrorPayload) => void): Unlisten
@@ -215,6 +232,48 @@ export async function switchProfile(args: { profileId: string }): Promise<Switch
   const adapter = testAdapter()
   if (adapter) return adapter.switchProfile(args)
   return invoke<SwitchResult>('switch_profile', args)
+}
+
+export async function addDailyProfile(args: {
+  displayName: string
+  date: string
+}): Promise<SwitchResult> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.addDailyProfile(args)
+  return invoke<SwitchResult>('add_daily_profile', args)
+}
+
+export async function createTodayNote(args: { date: string }): Promise<SwitchResult> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.createTodayNote(args)
+  return invoke<SwitchResult>('create_today_note', args)
+}
+
+export async function stepDay(args: { delta: number }): Promise<SwitchResult> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.stepDay(args)
+  return invoke<SwitchResult>('step_day', args)
+}
+
+export async function getDayInfo(): Promise<DayInfo> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.getDayInfo()
+  return invoke<DayInfo>('get_day_info')
+}
+
+export async function getLeftovers(): Promise<LeftoverInfo> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.getLeftovers()
+  return invoke<LeftoverInfo>('get_leftovers')
+}
+
+export async function bringOverLeftovers(args: {
+  revision: string
+  sourceSession: string
+}): Promise<TodoDocument> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.bringOverLeftovers(args)
+  return invoke<TodoDocument>('bring_over_leftovers', args)
 }
 
 export async function onTodosUpdated(

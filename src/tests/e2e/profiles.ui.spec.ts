@@ -115,7 +115,7 @@ test('a missing note shows relink/retry, other lists stay navigable', async ({ p
   await next(page).click()
   await expect(page.getByRole('alert')).toContainText('could not be found')
   await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Relink note' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Browse for note' })).toBeVisible()
   await expect(page.getByText('Seed task one')).toBeHidden()
   await expect(name(page)).toHaveText('Groceries')
 

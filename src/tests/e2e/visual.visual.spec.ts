@@ -126,3 +126,87 @@ test('expanded sheet, list manager open', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'Manage lists' })).toBeVisible()
   await expect(page).toHaveScreenshot('expanded-list-manager.png')
 })
+
+test('collapsed widget, second list', async ({ page }) => {
+  await page.addInitScript(installFakeAdapterScript())
+  await page.setViewportSize({ width: 380, height: 252 })
+  await page.goto('/')
+  await setTheme(page, 'ivory')
+  await page.getByRole('button', { name: 'Next list' }).click()
+  await expect(page.locator('.typewriter .display .name')).toHaveText('Groceries')
+  await expect(page).toHaveScreenshot('collapsed-second-list.png')
+})
+
+test('collapsed widget, long list name truncates', async ({ page }) => {
+  const longName = installFakeAdapterScript().replace(
+    "displayName: 'Personal'",
+    "displayName: 'Quarterly planning and long-running personal projects'",
+  )
+  await page.addInitScript(longName)
+  await page.setViewportSize({ width: 380, height: 252 })
+  await page.goto('/')
+  await setTheme(page, 'ivory')
+  await expect(page.locator('.typewriter .display .name')).toBeVisible()
+  await expect(page).toHaveScreenshot('collapsed-long-list-name.png')
+})
+
+test('collapsed widget, keyboard focus on an arrow', async ({ page }) => {
+  await page.addInitScript(installFakeAdapterScript())
+  await page.setViewportSize({ width: 380, height: 252 })
+  await page.goto('/')
+  await setTheme(page, 'ivory')
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: 'Previous list' })).toBeFocused()
+  await expect(page).toHaveScreenshot('collapsed-arrow-focus.png')
+})
+
+test('expanded sheet, daily list with date row', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 5, 10, 0, 0))
+  await page.addInitScript(installFakeAdapterScript({ daily: true }))
+  await page.setViewportSize({ width: 380, height: 636 })
+  await page.goto('/')
+  await setTheme(page, 'ivory')
+  await page.getByRole('button', { name: 'Previous list' }).click()
+  await page.locator('.clickable-area').click()
+  await expect(page.getByText('Work task today')).toBeVisible()
+  await expect(page.getByTestId('day-date')).toHaveText('2026-10-04')
+  await expect(page).toHaveScreenshot('expanded-daily-list.png')
+})
+
+test('expanded sheet, daily list with no note yet', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 5, 10, 0, 0))
+  await page.addInitScript(installFakeAdapterScript({ daily: 'empty' }))
+  await page.setViewportSize({ width: 380, height: 636 })
+  await page.goto('/')
+  await setTheme(page, 'ivory')
+  await page.getByRole('button', { name: 'Previous list' }).click()
+  await page.locator('.clickable-area').click()
+  await expect(page.getByText('No note in this folder yet.')).toBeVisible()
+  await expect(page).toHaveScreenshot('expanded-daily-no-note.png')
+})
+
+test('first start screen', async ({ page }) => {
+  const none = installFakeAdapterScript()
+    .replace(/const profiles = \[[\s\S]*?\n {6}\];/, 'const profiles = [];')
+    .replace("let activeProfileId = 'p-personal';", 'let activeProfileId = null;')
+  await page.addInitScript(none)
+  await page.setViewportSize({ width: 380, height: 636 })
+  await page.goto('/')
+  await setTheme(page, 'ivory')
+  await page.locator('.clickable-area').click()
+  await expect(page.getByLabel('List name')).toBeVisible()
+  await expect(page).toHaveScreenshot('first-start.png')
+})
+
+test('expanded sheet, leftovers banner on a new day', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 5, 10, 0, 0))
+  await page.addInitScript(installFakeAdapterScript({ daily: true }))
+  await page.setViewportSize({ width: 380, height: 636 })
+  await page.goto('/')
+  await setTheme(page, 'ivory')
+  await page.getByRole('button', { name: 'Previous list' }).click()
+  await page.locator('.clickable-area').click()
+  await page.getByRole('button', { name: 'New note for today' }).click()
+  await expect(page.getByRole('status')).toContainText('1 unfinished from 2026-10-04')
+  await expect(page).toHaveScreenshot('expanded-leftovers-banner.png')
+})

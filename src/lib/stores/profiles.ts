@@ -1,5 +1,5 @@
 import { get, writable } from 'svelte/store'
-import type { Profile } from '../types'
+import { NOT_DAILY, type DayInfo, type Profile } from '../types'
 import * as tauriService from '../services/tauri'
 import {
   applyDocumentFromProfileSwitch,
@@ -16,6 +16,15 @@ export interface ProfilesState {
 }
 
 export const profilesState = writable<ProfilesState>({ profiles: [], activeProfileId: null })
+
+/** Day row state for the active list (`isDaily: false` for plain lists). */
+export const dayInfo = writable<DayInfo>(NOT_DAILY)
+
+/** Today's local date as `YYYY-MM-DD`. */
+export function todayString(now: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
 
 /**
  * Draft text is scoped per profile so switching lists never leaks an
@@ -65,6 +74,7 @@ class ProfileController {
     try {
       const state = await tauriService.getAppState()
       profilesState.set({ profiles: state.profiles, activeProfileId: state.activeProfileId })
+      await this.refreshDayInfo()
     } catch {
       // Leave profilesState at its default; the empty-state file picker
       // flow still works with zero profiles.
@@ -81,20 +91,48 @@ class ProfileController {
     await this.switchTo(state.profiles[nextIndex].id)
   }
 
+  async refreshDayInfo() {
+    try {
+      dayInfo.set(await tauriService.getDayInfo())
+    } catch {
+      dayInfo.set(NOT_DAILY)
+    }
+  }
+
   async switchTo(profileId: string, { force = false }: { force?: boolean } = {}) {
     const state = get(profilesState)
     if (!force && profileId === state.activeProfileId) return
-    const myGeneration = ++this.generation
-
     profilesState.update((s) => ({ ...s, activeProfileId: profileId }))
+    await this.runSwitch(() => tauriService.switchProfile({ profileId }))
+  }
+
+  /** Step the active daily list to an older (-1) or newer (+1) note. */
+  async stepDay(delta: 1 | -1) {
+    await this.runSwitch(() => tauriService.stepDay({ delta }))
+  }
+
+  /** Create (or open) today's note in the active daily list. */
+  async createTodayNote() {
+    await this.runSwitch(() => tauriService.createTodayNote({ date: todayString() }))
+  }
+
+  /**
+   * Latest-wins execution of any command that replaces the active
+   * document (list switch, day step, note creation): hide the old
+   * document immediately, supersede its session, and ignore a result that
+   * lost the race to a later request.
+   */
+  private async runSwitch(call: () => Promise<tauriService.SwitchResult>) {
+    const myGeneration = ++this.generation
     beginProfileSwitch()
 
     try {
-      const result = await tauriService.switchProfile({ profileId })
+      const result = await call()
       if (myGeneration !== this.generation) {
         if (result.document) supersedeSession(result.document.sourceSession)
         return
       }
+      dayInfo.set(result.day ?? NOT_DAILY)
       if (result.document) {
         applyDocumentFromProfileSwitch(result.document)
       } else if (result.error) {
@@ -126,6 +164,28 @@ class ProfileController {
       }
       await this.hydrate()
       applyDocumentFromProfileSwitch(doc)
+    } catch (err) {
+      if (!isCancelled(err)) setLoadError(describe(err))
+    }
+  }
+
+  /** Add a daily list: the backend asks for a folder through the native picker. */
+  async addDailyProfile(displayName: string) {
+    const myGeneration = ++this.generation
+    try {
+      const result = await tauriService.addDailyProfile({ displayName, date: todayString() })
+      if (myGeneration !== this.generation) {
+        if (result.document) supersedeSession(result.document.sourceSession)
+        return
+      }
+      await this.hydrate()
+      dayInfo.set(result.day ?? NOT_DAILY)
+      if (result.document) {
+        applyDocumentFromProfileSwitch(result.document)
+      } else {
+        clearDocument()
+        if (result.error) setLoadError(describe(result.error))
+      }
     } catch (err) {
       if (!isCancelled(err)) setLoadError(describe(err))
     }

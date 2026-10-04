@@ -13,8 +13,20 @@ use crate::errors::{AppError, AppResult};
 pub struct Profile {
     pub id: String,
     pub display_name: String,
+    /// For a plain list: the one Markdown file. For a daily list: the
+    /// dated note currently shown (inside `folder`), or the
+    /// `NO_NOTE_SENTINEL` placeholder when the folder has no notes yet.
     pub path: PathBuf,
+    /// Set for a daily list: the folder holding `YYYY-MM-DD.md` notes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub folder: Option<PathBuf>,
 }
+
+/// Placeholder `path` for a daily list whose folder has no dated notes.
+/// It lives inside the folder (so the watcher watches the right
+/// directory) and never exists on disk, so loading it reports a missing
+/// note rather than touching any real file.
+pub const NO_NOTE_SENTINEL: &str = ".typewriter-no-note.md";
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -59,6 +71,7 @@ impl AppConfig {
             id: uuid::Uuid::new_v4().to_string(),
             display_name: "Personal".to_string(),
             path,
+            folder: None,
         };
         self.active_profile_id = Some(profile.id.clone());
         self.profiles.push(profile);
@@ -107,6 +120,80 @@ pub fn validate_selected_path(path: &Path) -> AppResult<PathBuf> {
     }
 
     fs::canonicalize(path).map_err(|_| AppError::PermissionDenied)
+}
+
+/// Validate a user-selected folder for a daily list: must exist and be a
+/// real directory (not a symlink or file).
+pub fn validate_selected_folder(path: &Path) -> AppResult<PathBuf> {
+    let metadata = fs::symlink_metadata(path).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            AppError::FileMissing
+        } else {
+            AppError::PermissionDenied
+        }
+    })?;
+    if metadata.is_symlink() {
+        return Err(AppError::SymlinkRejected);
+    }
+    if !metadata.is_dir() {
+        return Err(AppError::NotDirectory);
+    }
+    fs::canonicalize(path).map_err(|_| AppError::PermissionDenied)
+}
+
+/// Strictly validate a `YYYY-MM-DD` date string. It becomes part of a
+/// file name, so anything but four digits, two digits, two digits with a
+/// plausible month and day is rejected (no separators, no traversal).
+pub fn validate_date(date: &str) -> AppResult<()> {
+    let b = date.as_bytes();
+    let ok = b.len() == 10
+        && b[4] == b'-'
+        && b[7] == b'-'
+        && b.iter()
+            .enumerate()
+            .all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit());
+    if !ok {
+        return Err(AppError::InvalidDate);
+    }
+    let month: u32 = date[5..7].parse().map_err(|_| AppError::InvalidDate)?;
+    let day: u32 = date[8..10].parse().map_err(|_| AppError::InvalidDate)?;
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return Err(AppError::InvalidDate);
+    }
+    Ok(())
+}
+
+/// The dated notes (`YYYY-MM-DD.md`, regular files only) in `folder`,
+/// oldest first. Other files and sub-folders are ignored.
+pub fn list_daily_notes(folder: &Path) -> Vec<PathBuf> {
+    let mut notes: Vec<PathBuf> = fs::read_dir(folder)
+        .map(|rd| {
+            rd.filter_map(Result::ok)
+                .filter(|e| e.file_type().map(|t| t.is_file()).unwrap_or(false))
+                .filter_map(|e| {
+                    let name = e.file_name().into_string().ok()?;
+                    let stem = name.strip_suffix(".md")?;
+                    validate_date(stem).ok()?;
+                    Some(folder.join(name))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    notes.sort();
+    notes
+}
+
+/// The note a daily list should open on: its newest dated note, or the
+/// placeholder when there are none.
+pub fn newest_note_or_placeholder(folder: &Path) -> PathBuf {
+    list_daily_notes(folder)
+        .pop()
+        .unwrap_or_else(|| folder.join(NO_NOTE_SENTINEL))
+}
+
+/// Initial contents of a newly created daily note.
+pub fn daily_note_template(list_name: &str, date: &str) -> String {
+    format!("# {list_name} — {date}\n\n## Todos\n\n")
 }
 
 /// The recovery directory for a given selected file:
@@ -158,6 +245,7 @@ mod tests {
             id: "keep-me".to_string(),
             display_name: "Work".to_string(),
             path: PathBuf::from("/vault/Work.md"),
+            folder: None,
         };
         let mut config = AppConfig {
             selected_path: Some(PathBuf::from("/vault/Ignored.md")),
@@ -188,6 +276,7 @@ mod tests {
             id: "p1".to_string(),
             display_name: "Groceries".to_string(),
             path: dir.path().join("Groceries.md"),
+            folder: None,
         };
         let config = AppConfig {
             profiles: vec![profile.clone()],
@@ -203,5 +292,77 @@ mod tests {
         let loaded = AppConfig::load(&config_path);
         assert_eq!(loaded.profiles, vec![profile]);
         assert_eq!(loaded.active_profile_id, Some("p1".to_string()));
+    }
+
+    #[test]
+    fn date_validation_is_strict() {
+        assert!(validate_date("2026-10-04").is_ok());
+        for bad in [
+            "2026-1-04",
+            "2026/10/04",
+            "2026-13-01",
+            "2026-00-10",
+            "2026-10-32",
+            "../../etc",
+            "2026-10-04x",
+            "",
+        ] {
+            assert!(validate_date(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn daily_notes_list_only_dated_regular_files_oldest_first() {
+        let dir = tempfile::tempdir().unwrap();
+        for name in [
+            "2026-10-04.md",
+            "2026-09-30.md",
+            "notes.md",
+            "2026-10-05.txt",
+        ] {
+            fs::write(dir.path().join(name), "x").unwrap();
+        }
+        fs::create_dir(dir.path().join("2026-10-06.md")).unwrap();
+        let names: Vec<String> = list_daily_notes(dir.path())
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, vec!["2026-09-30.md", "2026-10-04.md"]);
+        assert_eq!(
+            newest_note_or_placeholder(dir.path()),
+            dir.path().join("2026-10-04.md")
+        );
+    }
+
+    #[test]
+    fn empty_folder_opens_on_the_placeholder() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            newest_note_or_placeholder(dir.path()),
+            dir.path().join(NO_NOTE_SENTINEL)
+        );
+    }
+
+    #[test]
+    fn folder_validation_rejects_files_and_missing_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("a.md");
+        fs::write(&file, "x").unwrap();
+        assert!(validate_selected_folder(dir.path()).is_ok());
+        assert!(matches!(
+            validate_selected_folder(&file),
+            Err(AppError::NotDirectory)
+        ));
+        assert!(matches!(
+            validate_selected_folder(&dir.path().join("nope")),
+            Err(AppError::FileMissing)
+        ));
+    }
+
+    #[test]
+    fn old_profiles_without_a_folder_still_load() {
+        let json = r#"{"profiles":[{"id":"a","display_name":"A","path":"/a.md"}],"active_profile_id":"a","theme_id":null,"widget_expanded":false,"window_x":null,"window_y":null}"#;
+        let config: AppConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.profiles[0].folder, None);
     }
 }

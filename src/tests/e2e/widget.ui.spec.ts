@@ -16,6 +16,8 @@ test('expands via keyboard (Enter) and collapses via Escape', async ({ page }) =
   await page.locator('.clickable-area').focus()
   await page.keyboard.press('Enter')
   await expect(page.getByText('Seed task one')).toBeVisible()
+  // Escape is only honoured once expansion has settled.
+  await expect(page.locator('[data-widget-mode="expanded"]')).toHaveCount(1)
 
   await page.keyboard.press('Escape')
   await expect(page.getByText('Seed task one')).toBeHidden()

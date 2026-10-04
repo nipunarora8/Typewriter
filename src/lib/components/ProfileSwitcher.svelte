@@ -4,14 +4,17 @@
   export let profiles: Profile[]
   export let activeProfileId: string | null
   export let onNavigate: (delta: 1 | -1) => void
-  export let onManage: () => void
+  export let doneCount = 0
+  export let totalCount = 0
 
   $: activeIndex = profiles.findIndex((p) => p.id === activeProfileId)
   $: activeName = activeIndex >= 0 ? profiles[activeIndex].displayName : 'No list'
   $: canNavigate = profiles.length > 1
+  $: countText = totalCount > 0 ? `${doneCount}/${totalCount}` : ''
+  $: countLabel = totalCount > 0 ? `${doneCount} of ${totalCount} tasks done` : 'No tasks'
 </script>
 
-<div class="switcher" data-tauri-drag-region>
+<div class="switcher" role="group" aria-label="Lists" data-tauri-drag-region>
   {#if canNavigate}
     <button
       type="button"
@@ -22,15 +25,24 @@
       &lt;
     </button>
   {/if}
-  <span class="name" class:solo={!canNavigate} title={activeName} data-tauri-drag-region
-    >{activeName}</span
+  <span
+    class="name"
+    class:empty={activeIndex < 0}
+    title={activeName}
+    aria-live="polite"
+    data-tauri-drag-region>{activeName}</span
   >
+  {#if countText}
+    <span class="count" title={countLabel} data-tauri-drag-region>
+      <span aria-hidden="true" data-tauri-drag-region>{countText}</span>
+      <span class="sr-only">{countLabel}</span>
+    </span>
+  {/if}
   {#if canNavigate}
     <button type="button" class="chevron" aria-label="Next list" on:click={() => onNavigate(1)}>
       &gt;
     </button>
   {/if}
-  <button type="button" class="manage" aria-label="Manage lists" on:click={onManage}>⚙</button>
 </div>
 
 <style>
@@ -38,8 +50,8 @@
     display: flex;
     align-items: center;
     gap: var(--space-1);
+    width: 100%;
     min-width: 0;
-    flex: 1;
   }
 
   .chevron {
@@ -49,17 +61,20 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 1.1rem;
-    height: 1.1rem;
-    font-family: var(--font-display);
-    font-size: 0.75rem;
+    width: 1.7rem;
+    height: 1.6rem;
+    /* Larger hit target without growing the cream box. */
+    margin: -0.35rem 0;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
     font-weight: 700;
-    color: var(--color-muted-ink);
+    line-height: 1;
+    color: var(--color-key-ink);
     border-radius: var(--radius-control);
   }
 
   .chevron:hover {
-    color: var(--color-ink);
+    background: color-mix(in srgb, var(--color-key-ink) 14%, transparent);
   }
 
   .chevron:focus-visible {
@@ -68,43 +83,40 @@
   }
 
   .name {
-    font-family: var(--font-display);
-    font-size: 0.75rem;
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    font-family: var(--font-body);
+    font-size: 0.8rem;
     font-weight: 700;
-    letter-spacing: 0.03em;
-    color: var(--color-ink);
+    letter-spacing: 0.04em;
     text-transform: uppercase;
+    color: var(--color-key-ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 0;
   }
 
-  .name.solo {
-    padding-left: 0.25rem;
+  .name.empty {
+    font-weight: 400;
+    text-transform: none;
+    opacity: 0.7;
   }
 
-  .manage {
-    all: unset;
-    cursor: pointer;
+  .count {
     flex-shrink: 0;
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.1rem;
-    height: 1.1rem;
+    font-family: var(--font-body);
     font-size: 0.7rem;
-    color: var(--color-muted-ink);
-    border-radius: var(--radius-control);
+    color: var(--color-key-ink);
+    opacity: 0.75;
+    white-space: nowrap;
   }
 
-  .manage:hover {
-    color: var(--color-ink);
-  }
-
-  .manage:focus-visible {
-    outline: 2px solid var(--color-focus);
-    outline-offset: 1px;
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
   }
 </style>

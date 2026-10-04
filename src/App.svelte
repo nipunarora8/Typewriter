@@ -16,20 +16,34 @@
     todosState,
     initialize as initializeTodos,
     teardown as teardownTodos,
-    chooseFile,
     toggleTask,
     addTask,
     dismissError,
   } from './lib/stores/todos'
-  import { profilesState, profileController, draftFor, setDraftFor } from './lib/stores/profiles'
+  import {
+    profilesState,
+    profileController,
+    draftFor,
+    setDraftFor,
+    dayInfo,
+  } from './lib/stores/profiles'
+  import {
+    leftovers,
+    refreshLeftovers,
+    dismissLeftovers,
+    bringOverLeftovers,
+  } from './lib/stores/leftovers'
   import type { TodoItem } from './lib/types'
 
   let draft = ''
   let draftOwner: string | null = null
   let managerOpen = false
-  let expandButtonEl: HTMLElement | undefined
+  let expandButtonEl: HTMLButtonElement | undefined
   let sheetContainerEl: HTMLElement | undefined
   let pendingCollapseGeneration = 0
+  // Only keyboard-driven collapses move focus back to the expansion button;
+  // after a mouse click a programmatic focus would draw a stray focus ring.
+  let collapseByKeyboard = false
 
   $: isExpandedLike = $widgetMode === 'expanding' || $widgetMode === 'expanded'
   $: isExpandedOrTransitioning = $widgetMode !== 'collapsed'
@@ -39,7 +53,22 @@
   $: loading = $todosState.loading
   $: hasProfiles = $profilesState.profiles.length > 0
   $: unavailable = !hasFile && !loading && hasProfiles
-  $: syncDraftOwner($profilesState.activeProfileId)
+  // Offer leftovers from the previous day only for an empty daily note.
+  $: dismissKey = $profilesState.activeProfileId
+    ? `${$profilesState.activeProfileId}|${$dayInfo.date ?? ''}`
+    : null
+  $: void refreshLeftovers(
+    $todosState.document?.sourceSession ?? null,
+    $dayInfo.isDaily && $dayInfo.date !== null && hasFile && tasks.length === 0,
+    dismissKey,
+  )
+
+  // A draft belongs to one list and, within a daily list, one day.
+  $: syncDraftOwner(
+    $profilesState.activeProfileId
+      ? `${$profilesState.activeProfileId}|${$dayInfo.date ?? ''}`
+      : null,
+  )
 
   // Unsent drafts belong to the profile they were typed in: park the
   // current text under its owner and load the newly active profile's own.
@@ -100,8 +129,10 @@
     firstFocusable?.focus()
   }
 
-  function handleWidgetClick() {
+  function handleWidgetClick(event?: MouseEvent) {
     if (isExpandedLike) {
+      // detail === 0 means the click came from Enter/Space, not a pointer.
+      collapseByKeyboard = !event || event.detail === 0
       handleRequestCollapse()
     } else {
       void handleExpand()
@@ -117,7 +148,8 @@
   async function onSheetExitComplete() {
     await widgetController.finishCollapse(pendingCollapseGeneration)
     await tick()
-    expandButtonEl?.focus()
+    if (collapseByKeyboard) expandButtonEl?.focus()
+    else if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
   }
 
   function handleToggle(item: TodoItem) {
@@ -139,13 +171,10 @@
     if (id) void profileController.relinkProfile(id)
   }
 
-  async function handleAddProfile(name: string) {
-    await profileController.addProfile(name)
+  async function handleAddProfile(name: string, kind: 'file' | 'daily') {
+    if (kind === 'daily') await profileController.addDailyProfile(name)
+    else await profileController.addProfile(name)
     managerOpen = false
-  }
-
-  function handleChooseFile() {
-    void chooseFile()
   }
 
   function handleWindowKeydown(e: KeyboardEvent) {
@@ -160,6 +189,7 @@
       return
     }
     if (draft.trim().length > 0) return
+    collapseByKeyboard = true
     handleRequestCollapse()
   }
 </script>
@@ -188,7 +218,10 @@
             {#if errorMessage}
               <p class="inline-error" role="alert">{errorMessage}</p>
             {/if}
-            <FilePicker onChoose={handleChooseFile} busy={$todosState.loading} />
+            <FilePicker
+              onChooseFolder={(name) => handleAddProfile(name, 'daily')}
+              busy={$todosState.loading}
+            />
           </div>
         {:else}
           <TodoSheet
@@ -202,8 +235,17 @@
             onToggle={handleToggle}
             onAdd={handleAdd}
             onDismissError={dismissError}
-            onNavigate={handleNavigate}
             onManage={() => (managerOpen = true)}
+            day={$dayInfo}
+            onStepDay={(delta) => void profileController.stepDay(delta)}
+            onCreateToday={() => void profileController.createTodayNote()}
+            leftover={$leftovers}
+            onBringOver={() => void bringOverLeftovers()}
+            onDismissLeftover={() => dismissLeftovers(dismissKey)}
+            onRemoveList={() => {
+              const id = $profilesState.activeProfileId
+              if (id) void profileController.removeProfile(id)
+            }}
             onRetry={() => void profileController.retry()}
             onRelink={handleRelinkActive}
           />
@@ -227,15 +269,17 @@
   {/if}
 
   <div class="widget-slot">
-    <div bind:this={expandButtonEl} style="width: 100%; height: 100%;">
-      <TypewriterWidget
-        onExpand={handleWidgetClick}
-        expanded={isExpandedLike}
-        dockedBelowSheet={isExpandedOrTransitioning}
-        doneCount={tasks.filter((t) => t.completed).length}
-        totalCount={tasks.length}
-      />
-    </div>
+    <TypewriterWidget
+      bind:expandButton={expandButtonEl}
+      onExpand={handleWidgetClick}
+      expanded={isExpandedLike}
+      dockedBelowSheet={isExpandedOrTransitioning}
+      doneCount={tasks.filter((t) => t.completed).length}
+      totalCount={tasks.length}
+      profiles={$profilesState.profiles}
+      activeProfileId={$profilesState.activeProfileId}
+      onNavigate={handleNavigate}
+    />
   </div>
 </main>
 
