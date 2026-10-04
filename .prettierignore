@@ -1,5 +1,6 @@
 dist
 node_modules
+fixtures
 src-tauri/target
 src-tauri/gen
 plan.md
