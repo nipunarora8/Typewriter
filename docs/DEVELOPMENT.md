@@ -189,8 +189,8 @@ updates** in the gear menu, which reads `latest.json` from the latest GitHub Rel
 
 One-time setup: the update signing key lives at `~/.tauri/typewriter.key`
 (never commit it; back it up). Add its contents as the GitHub secret
-`TAURI_SIGNING_PRIVATE_KEY`, and the key password as
-`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (empty string if none). The matching
+`TAURI_SIGNING_PRIVATE_KEY`. The key has no password, and the workflow passes
+an empty one. The matching
 public key is in `tauri.conf.json`. If the private key is lost, installed
 apps can no longer update to new versions.
 
