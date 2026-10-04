@@ -83,6 +83,9 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  /* Everything is sized in rem, so on large or high-resolution screens the
+     whole page grows with the viewport. 16px up to ~1440px wide. */
+  font-size: clamp(16px, calc(0.625vw + 7px), 32px);
 }
 body {
   margin: 0;
