@@ -24,6 +24,13 @@ pub fn run() {
             commands::start_watcher_if_selected(&handle, &state);
             if let Some(main_window) = app.get_webview_window("main") {
                 window::restore_position(&main_window, &state);
+                // macOS draws a rectangular drop shadow around the
+                // window's frame regardless of the webview content's
+                // own border-radius, which shows as a visible square
+                // behind our rounded widget. Disable the native shadow
+                // and let the CSS box-shadow (which does follow the
+                // rounded corners) stand in for it.
+                let _ = main_window.set_shadow(false);
             }
             Ok(())
         })

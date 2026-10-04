@@ -1,55 +1,69 @@
 <script lang="ts">
   export let onExpand: () => void
   export let expanded: boolean
+  export let dockedBelowSheet = false
   export let doneCount = 0
   export let totalCount = 0
 
-  const rows = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM']
+  const rows = ['1234567890', 'QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM!?']
 </script>
 
-<button
-  type="button"
-  class="typewriter"
-  aria-expanded={expanded}
-  aria-controls="todo-sheet"
-  on:click={onExpand}
->
-  <span class="counter" aria-hidden="true">
-    <span class="arrow">‹</span>
-    <span class="count">{totalCount > 0 ? `${doneCount}/${totalCount} done` : 'no tasks'}</span>
-    <span class="arrow">›</span>
-  </span>
-  <span class="keys" aria-hidden="true">
-    {#each rows as row}
-      <span class="key-row">
-        {#each row as letter}
-          <span class="key">{letter}</span>
-        {/each}
-      </span>
-    {/each}
-  </span>
-  <span class="label">Open todos</span>
-</button>
+<div class="typewriter" class:docked={dockedBelowSheet} data-tauri-drag-region>
+  <button
+    type="button"
+    class="clickable-area"
+    aria-expanded={expanded}
+    aria-controls="todo-sheet"
+    on:click={onExpand}
+  >
+    <span class="counter" aria-hidden="true">
+      <span class="plus">+</span>
+      <span class="count">{totalCount > 0 ? `${doneCount}/${totalCount} done` : 'no tasks'}</span>
+      <span class="plus">+</span>
+    </span>
+    <span class="keys" aria-hidden="true">
+      {#each rows as row}
+        <span class="key-row">
+          {#each row as letter}
+            <span class="key">{letter}</span>
+          {/each}
+        </span>
+      {/each}
+      <span class="spacebar"></span>
+    </span>
+  </button>
+</div>
 
 <style>
   .typewriter {
-    all: unset;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.3rem;
     width: 100%;
     height: 100%;
     box-sizing: border-box;
-    padding: var(--space-3);
-    cursor: pointer;
+    padding: var(--space-2) var(--space-3);
     background: var(--color-surface);
     border-radius: var(--radius-widget);
     box-shadow: var(--shadow-widget);
   }
 
-  .typewriter:focus-visible {
+  .typewriter.docked {
+    border-radius: 0 0 var(--radius-widget) var(--radius-widget);
+  }
+
+  .clickable-area {
+    all: unset;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    cursor: pointer;
+  }
+
+  .clickable-area:focus-visible {
     outline: 3px solid var(--color-focus);
     outline-offset: 3px;
   }
@@ -59,22 +73,24 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    width: 86%;
-    padding: 0.2rem var(--space-2);
-    background: var(--color-surface-shade);
+    width: 92%;
+    padding: 0.5rem var(--space-2);
+    background: var(--color-key);
+    border: 2px solid var(--color-key-ink);
     border-radius: var(--radius-control);
   }
 
-  .arrow {
-    font-size: 0.75rem;
-    color: var(--color-on-surface-muted);
+  .plus {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-key-ink);
     line-height: 1;
   }
 
   .count {
     font-family: var(--font-body);
-    font-size: 0.75rem;
-    color: var(--color-on-surface);
+    font-size: 0.8rem;
+    color: var(--color-key-ink);
     letter-spacing: 0.02em;
     white-space: nowrap;
   }
@@ -83,35 +99,36 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.2rem;
+    gap: 0.3rem;
   }
 
   .key-row {
     display: flex;
-    gap: 0.2rem;
+    gap: 0.3rem;
   }
 
   .key {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 1.3rem;
-    height: 1.3rem;
+    width: 1.85rem;
+    height: 1.85rem;
     border-radius: 999px;
     background: var(--color-key);
-    border: 1px solid var(--border-key);
+    border: 2px solid var(--color-key-ink);
     color: var(--color-key-ink);
     font-family: var(--font-body);
-    font-size: 0.55rem;
+    font-size: 0.75rem;
     font-weight: 700;
     line-height: 1;
   }
 
-  .label {
-    font-family: var(--font-body);
-    font-size: 0.7rem;
-    color: var(--color-on-surface-muted);
-    letter-spacing: 0.02em;
-    margin-top: 0.15rem;
+  .spacebar {
+    width: 78%;
+    height: 1.4rem;
+    margin-top: 0.05rem;
+    background: var(--color-key);
+    border: 2px solid var(--color-key-ink);
+    border-radius: var(--radius-control);
   }
 </style>

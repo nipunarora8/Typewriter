@@ -1,6 +1,7 @@
-import { writable } from 'svelte/store'
+import { get, writable } from 'svelte/store'
 import type { WidgetMode } from '../types'
 import { COLLAPSED_SIZE, EXPANDED_SIZE, requestNativeSize } from '../services/nativeWindow'
+import { windowScale } from './preferences'
 
 export const widgetMode = writable<WidgetMode>('collapsed')
 
@@ -17,7 +18,7 @@ class WidgetController {
   async requestExpand() {
     const myGeneration = ++this.generation
     widgetMode.set('expanding')
-    await requestNativeSize(EXPANDED_SIZE)
+    await requestNativeSize(EXPANDED_SIZE, get(windowScale), true)
     if (myGeneration !== this.generation) return
     widgetMode.set('expanded')
   }
@@ -34,7 +35,10 @@ class WidgetController {
 
   async finishCollapse(myGeneration: number) {
     if (myGeneration !== this.generation) return
-    await requestNativeSize(COLLAPSED_SIZE)
+    // Resizing is only offered while the todo list is open; collapsing
+    // always returns the widget to its original, fixed size.
+    windowScale.set(1)
+    await requestNativeSize(COLLAPSED_SIZE, 1, false)
     if (myGeneration !== this.generation) return
     widgetMode.set('collapsed')
   }

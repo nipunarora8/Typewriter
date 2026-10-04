@@ -13,8 +13,12 @@
     "windows": [
       {
         "title": "typewriter",
-        "width": 340,
-        "height": 190,
+        "width": 380,
+        "height": 252,
+        "minWidth": 380,
+        "minHeight": 252,
+        "maxWidth": 380,
+        "maxHeight": 252,
         "resizable": true,
         "decorations": false,
         "transparent": true,

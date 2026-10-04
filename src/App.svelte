@@ -4,7 +4,13 @@
   import TodoSheet from './lib/components/TodoSheet.svelte'
   import FilePicker from './lib/components/FilePicker.svelte'
   import { widgetMode, widgetController } from './lib/stores/widget'
-  import { themeId, initializePreferences, setTheme } from './lib/stores/preferences'
+  import {
+    COLLAPSED_SIZE,
+    EXPANDED_SIZE,
+    onNativeResize,
+    readCurrentScale,
+  } from './lib/services/nativeWindow'
+  import { initializePreferences, windowScale } from './lib/stores/preferences'
   import {
     todosState,
     initialize as initializeTodos,
@@ -14,7 +20,6 @@
     addTask,
     dismissError,
   } from './lib/stores/todos'
-  import { THEME_IDS, type ThemeId } from './lib/theme/theme'
   import type { TodoItem } from './lib/types'
 
   let draft = ''
@@ -23,21 +28,47 @@
   let pendingCollapseGeneration = 0
 
   $: isExpandedLike = $widgetMode === 'expanding' || $widgetMode === 'expanded'
+  $: isExpandedOrTransitioning = $widgetMode !== 'collapsed'
   $: tasks = $todosState.document?.tasks ?? []
   $: hasFile = $todosState.document !== null
   $: errorMessage = $todosState.errorMessage
 
+  let resizeUnlisten: (() => void) | undefined
+  let resizeDebounceId: ReturnType<typeof setTimeout> | undefined
+
   onMount(() => {
     void initializePreferences()
     void initializeTodos()
+    void onNativeResize(handleNativeResize).then((unlisten) => {
+      resizeUnlisten = unlisten
+    })
   })
 
   onDestroy(() => {
     void teardownTodos()
+    resizeUnlisten?.()
+    if (resizeDebounceId) clearTimeout(resizeDebounceId)
   })
 
-  function handleThemeChange(id: ThemeId) {
-    void setTheme(id)
+  // Drag-resize is a live, session-only convenience: the window's own
+  // size is the source of truth while open, but nothing is persisted
+  // to disk, so the app always launches at the default size.
+  function handleNativeResize() {
+    if (resizeDebounceId) clearTimeout(resizeDebounceId)
+    resizeDebounceId = setTimeout(() => {
+      void syncScaleFromWindow()
+    }, 250)
+  }
+
+  async function syncScaleFromWindow() {
+    // Resizing is only offered while expanded; collapsed/transitioning
+    // windows are pinned to a fixed size, so a resize event there is
+    // always our own programmatic call, not a user drag.
+    if (!isExpandedLike) return
+    const measured = await readCurrentScale(EXPANDED_SIZE)
+    if (measured === null) return
+    if (Math.abs(measured - $windowScale) < 0.01) return
+    windowScale.set(measured)
   }
 
   async function handleExpand() {
@@ -47,6 +78,14 @@
       'input[type="text"], button, [tabindex]',
     )
     firstFocusable?.focus()
+  }
+
+  function handleWidgetClick() {
+    if (isExpandedLike) {
+      handleRequestCollapse()
+    } else {
+      void handleExpand()
+    }
   }
 
   function handleRequestCollapse() {
@@ -88,19 +127,14 @@
 
 <svelte:window on:keydown={handleWindowKeydown} />
 
-<main class="root" data-widget-mode={$widgetMode}>
-  <div class="widget-slot" class:hidden={isExpandedLike}>
-    <div bind:this={expandButtonEl} style="width: 100%; height: 100%;">
-      <TypewriterWidget
-        onExpand={handleExpand}
-        expanded={isExpandedLike}
-        doneCount={tasks.filter((t) => t.completed).length}
-        totalCount={tasks.length}
-      />
-    </div>
-  </div>
+<main
+  class="root"
+  data-widget-mode={$widgetMode}
+  style="--collapsed-height: {COLLAPSED_SIZE.height / 16}rem; font-size: {16 * $windowScale}px;"
+>
+  <div class="drag-strip" data-tauri-drag-region aria-hidden="true"></div>
 
-  {#if $widgetMode !== 'collapsed'}
+  {#if isExpandedOrTransitioning}
     <div
       class="sheet-slot"
       class:collapsing={$widgetMode === 'collapsing'}
@@ -109,39 +143,59 @@
         if ($widgetMode === 'collapsing') onSheetExitComplete()
       }}
     >
-      {#if !hasFile}
-        <div class="sheet-shell">
-          {#if errorMessage}
-            <p class="inline-error" role="alert">{errorMessage}</p>
-          {/if}
-          <FilePicker onChoose={handleChooseFile} busy={$todosState.loading} />
-        </div>
-      {:else}
-        <TodoSheet
-          {tasks}
-          bind:draft
-          {errorMessage}
-          onToggle={handleToggle}
-          onAdd={handleAdd}
-          onDismissError={dismissError}
-        />
-      {/if}
+      <div class="sheet-slot-paper">
+        {#if !hasFile}
+          <div class="sheet-shell">
+            {#if errorMessage}
+              <p class="inline-error" role="alert">{errorMessage}</p>
+            {/if}
+            <FilePicker onChoose={handleChooseFile} busy={$todosState.loading} />
+          </div>
+        {:else}
+          <TodoSheet
+            {tasks}
+            bind:draft
+            {errorMessage}
+            onToggle={handleToggle}
+            onAdd={handleAdd}
+            onDismissError={dismissError}
+          />
+        {/if}
+      </div>
+      <div class="platen" aria-hidden="true">
+        <span class="platen-shine"></span>
+      </div>
     </div>
   {/if}
 
-  <div class="dev-theme-switcher" aria-label="Theme switcher (Phase 0A prototype)">
-    {#each THEME_IDS as id}
-      <button type="button" class:active={$themeId === id} on:click={() => handleThemeChange(id)}>
-        {id}
-      </button>
-    {/each}
+  <div class="widget-slot">
+    <div bind:this={expandButtonEl} style="width: 100%; height: 100%;">
+      <TypewriterWidget
+        onExpand={handleWidgetClick}
+        expanded={isExpandedLike}
+        dockedBelowSheet={isExpandedOrTransitioning}
+        doneCount={tasks.filter((t) => t.completed).length}
+        totalCount={tasks.length}
+      />
+    </div>
   </div>
 </main>
 
 <style>
   :global(html, body) {
     margin: 0;
+    overflow: hidden;
     background: transparent;
+    /* Prevent WebKit's text-selection drag (dashed marching-ants box)
+       from triggering on click-drag over decorative spans/keys — this
+       is a chrome-less widget, not a document, so nothing in it should
+       ever be text-selectable. */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  :global(*) {
+    -webkit-user-drag: none;
   }
 
   .root {
@@ -149,26 +203,30 @@
     width: 100%;
     height: 100vh;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
     font-family: var(--font-body);
   }
 
-  .widget-slot {
+  .drag-strip {
+    flex-shrink: 0;
     width: 100%;
-    height: 100%;
+    height: 0.5rem;
   }
 
-  .widget-slot.hidden {
-    visibility: hidden;
-    pointer-events: none;
+  .widget-slot {
+    flex-shrink: 0;
+    width: 100%;
+    height: calc(var(--collapsed-height, 15.75rem) - 0.5rem);
   }
 
   .sheet-slot {
-    position: absolute;
-    inset: 0;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: scaleY(1);
+    transform-origin: bottom;
     transition:
       opacity var(--duration-sheet-enter) var(--ease-enter),
       transform var(--duration-sheet-enter) var(--ease-enter);
@@ -176,10 +234,31 @@
 
   .sheet-slot.collapsing {
     opacity: 0;
-    transform: scale(0.96) translateY(6px);
+    transform: scaleY(0.92);
     transition:
       opacity var(--duration-sheet-exit) var(--ease-exit),
       transform var(--duration-sheet-exit) var(--ease-exit);
+  }
+
+  .sheet-slot-paper {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .platen {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 1rem;
+    background: #2a2a2e;
+  }
+
+  .platen-shine {
+    width: 92%;
+    height: 0.3rem;
+    border-radius: 999px;
+    background: #44444a;
   }
 
   .sheet-shell {
@@ -190,7 +269,8 @@
     box-sizing: border-box;
     background: var(--color-paper);
     border: 2px dashed var(--color-paper-edge);
-    border-radius: var(--radius-paper);
+    border-bottom: none;
+    border-radius: var(--radius-widget) var(--radius-widget) 0 0;
     box-shadow: var(--shadow-paper);
     overflow: hidden;
   }
@@ -201,28 +281,5 @@
     font-family: var(--font-body);
     font-size: 0.8rem;
     color: var(--color-danger);
-  }
-
-  .dev-theme-switcher {
-    position: fixed;
-    bottom: 4px;
-    right: 4px;
-    display: flex;
-    gap: 2px;
-    font-size: 9px;
-    z-index: 100;
-  }
-
-  .dev-theme-switcher button {
-    all: unset;
-    cursor: pointer;
-    padding: 2px 4px;
-    background: var(--color-surface);
-    color: var(--color-ink);
-    border: 1px solid var(--border-subtle);
-  }
-
-  .dev-theme-switcher button.active {
-    outline: 1px solid var(--color-focus);
   }
 </style>

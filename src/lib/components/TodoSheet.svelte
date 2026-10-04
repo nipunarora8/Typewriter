@@ -16,7 +16,7 @@
 </script>
 
 <section id="todo-sheet" class="sheet" aria-label="Todo list">
-  <header class="title-bar">
+  <header class="title-bar" data-tauri-drag-region>
     <span class="title-text">··· {title} — TODOS</span>
     <span class="title-badge" aria-hidden="true"></span>
   </header>
@@ -49,7 +49,8 @@
     box-sizing: border-box;
     background: var(--color-paper);
     border: 2px dashed var(--color-paper-edge);
-    border-radius: var(--radius-paper);
+    border-bottom: none;
+    border-radius: var(--radius-widget) var(--radius-widget) 0 0;
     box-shadow: var(--shadow-paper);
     overflow: hidden;
   }

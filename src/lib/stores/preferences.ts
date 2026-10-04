@@ -4,6 +4,12 @@ import * as tauriService from '../services/tauri'
 
 export const themeId = writable<ThemeId>(resolveThemeId(null))
 
+/**
+ * Live window scale from drag-resize. In-memory only — never
+ * persisted, so the app always launches at its default size.
+ */
+export const windowScale = writable<number>(1)
+
 export async function initializePreferences() {
   try {
     const state = await tauriService.getAppState()
