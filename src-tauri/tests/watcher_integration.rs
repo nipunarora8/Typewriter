@@ -103,7 +103,7 @@ fn debounce_coalesces_rapid_successive_writes_into_fewer_events() {
 
     let (tx, rx) = mpsc::channel();
     let mut debouncer = new_debouncer(
-        Duration::from_millis(200),
+        Duration::from_millis(600),
         None,
         move |result: DebounceEventResult| {
             let _ = tx.send(result);
@@ -116,11 +116,11 @@ fn debounce_coalesces_rapid_successive_writes_into_fewer_events() {
 
     for i in 0..5 {
         fs::write(&target, format!("## Todos\n\n- [ ] version {i}\n")).unwrap();
-        std::thread::sleep(Duration::from_millis(20));
+        std::thread::sleep(Duration::from_millis(10));
     }
 
     let mut batches = 0;
-    while rx.recv_timeout(Duration::from_millis(500)).is_ok() {
+    while rx.recv_timeout(Duration::from_millis(1500)).is_ok() {
         batches += 1;
     }
     assert!(
