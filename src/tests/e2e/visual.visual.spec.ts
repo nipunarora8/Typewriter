@@ -34,7 +34,7 @@ const themes = ['ivory', 'midnight', 'high-contrast'] as const
 for (const theme of themes) {
   test(`collapsed widget — ${theme}`, async ({ page }) => {
     await page.addInitScript(installFakeAdapterScript())
-    await page.setViewportSize({ width: 340, height: 190 })
+    await page.setViewportSize({ width: 380, height: 252 })
     await page.goto('/')
     await setTheme(page, theme)
     await expect(page).toHaveScreenshot(`collapsed-${theme}.png`)
@@ -42,7 +42,7 @@ for (const theme of themes) {
 
   test(`expanded sheet, populated — ${theme}`, async ({ page }) => {
     await page.addInitScript(installFakeAdapterScript())
-    await page.setViewportSize({ width: 420, height: 620 })
+    await page.setViewportSize({ width: 380, height: 636 })
     await page.goto('/')
     await setTheme(page, theme)
     await page.click('.typewriter')
@@ -53,11 +53,11 @@ for (const theme of themes) {
 
 test('expanded sheet, empty state', async ({ page }) => {
   const emptyAdapterScript = installFakeAdapterScript().replace(
-    /let tasks = \[[\s\S]*?\];/,
-    'let tasks = [];',
+    /'p-personal': \[[\s\S]*?\n {8}\],/,
+    "'p-personal': [],",
   )
   await page.addInitScript(emptyAdapterScript)
-  await page.setViewportSize({ width: 420, height: 620 })
+  await page.setViewportSize({ width: 380, height: 636 })
   await page.goto('/')
   await setTheme(page, 'ivory')
   await page.click('.typewriter')
@@ -67,10 +67,62 @@ test('expanded sheet, empty state', async ({ page }) => {
 
 test('expanded sheet, focus state on add input', async ({ page }) => {
   await page.addInitScript(installFakeAdapterScript())
-  await page.setViewportSize({ width: 420, height: 620 })
+  await page.setViewportSize({ width: 380, height: 636 })
   await page.goto('/')
   await setTheme(page, 'ivory')
   await page.click('.typewriter')
   await page.focus('#add-task-input')
   await expect(page).toHaveScreenshot('expanded-focus-add-input.png')
+})
+
+test('expanded sheet, second list active', async ({ page }) => {
+  await page.addInitScript(installFakeAdapterScript())
+  await page.setViewportSize({ width: 380, height: 636 })
+  await page.goto('/')
+  await setTheme(page, 'ivory')
+  await page.click('.typewriter')
+  await page.getByRole('button', { name: 'Next list' }).click()
+  await expect(page.getByText('Buy oat milk')).toBeVisible()
+  await expect(page).toHaveScreenshot('expanded-second-list.png')
+})
+
+test('expanded sheet, long list name truncates', async ({ page }) => {
+  const longName = installFakeAdapterScript().replace(
+    "displayName: 'Personal'",
+    "displayName: 'Quarterly planning and long-running personal projects'",
+  )
+  await page.addInitScript(longName)
+  await page.setViewportSize({ width: 380, height: 636 })
+  await page.goto('/')
+  await setTheme(page, 'ivory')
+  await page.click('.typewriter')
+  await expect(page.getByText('Seed task one')).toBeVisible()
+  await expect(page).toHaveScreenshot('expanded-long-list-name.png')
+})
+
+test('expanded sheet, missing note state', async ({ page }) => {
+  await page.addInitScript(installFakeAdapterScript())
+  await page.setViewportSize({ width: 380, height: 636 })
+  await page.goto('/')
+  await setTheme(page, 'ivory')
+  await page.click('.typewriter')
+  await page.evaluate(() => {
+    ;(
+      window as unknown as { __TYPEWRITER_TEST__: { setMissing(id: string, m: boolean): void } }
+    ).__TYPEWRITER_TEST__.setMissing('p-groceries', true)
+  })
+  await page.getByRole('button', { name: 'Next list' }).click()
+  await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible()
+  await expect(page).toHaveScreenshot('expanded-missing-note.png')
+})
+
+test('expanded sheet, list manager open', async ({ page }) => {
+  await page.addInitScript(installFakeAdapterScript())
+  await page.setViewportSize({ width: 380, height: 636 })
+  await page.goto('/')
+  await setTheme(page, 'ivory')
+  await page.click('.typewriter')
+  await page.getByRole('button', { name: 'Manage lists' }).click()
+  await expect(page.getByRole('dialog', { name: 'Manage lists' })).toBeVisible()
+  await expect(page).toHaveScreenshot('expanded-list-manager.png')
 })

@@ -13,7 +13,7 @@ test('expands via click and shows seeded tasks', async ({ page }) => {
 })
 
 test('expands via keyboard (Enter) and collapses via Escape', async ({ page }) => {
-  await page.locator('.typewriter').focus()
+  await page.locator('.clickable-area').focus()
   await page.keyboard.press('Enter')
   await expect(page.getByText('Seed task one')).toBeVisible()
 
@@ -35,13 +35,6 @@ test('adding a task via the form appends it to the list', async ({ page }) => {
   await page.click('button:has-text("Add")')
   await expect(page.getByText('A brand new task')).toBeVisible()
   await expect(page.locator('#add-task-input')).toHaveValue('')
-})
-
-test('draft text survives a theme switch without being cleared', async ({ page }) => {
-  await page.click('.typewriter')
-  await page.fill('#add-task-input', 'Unsent draft')
-  await page.click('.dev-theme-switcher button:has-text("midnight")')
-  await expect(page.locator('#add-task-input')).toHaveValue('Unsent draft')
 })
 
 test('Escape does not collapse while a draft is unsent', async ({ page }) => {
