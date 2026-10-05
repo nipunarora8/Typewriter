@@ -76,13 +76,16 @@ StartupWMClass=typewriter
 DESKTOP
   command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$APPDIR/applications" >/dev/null 2>&1 || true
   command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f -t "$APPDIR/icons/hicolor" >/dev/null 2>&1 || true
-  # KDE keeps its own app list; ask it to re-read so the entry shows up now.
-  if command -v kbuildsycoca6 >/dev/null 2>&1; then
-    kbuildsycoca6 >/dev/null 2>&1 || true
-    kquitapp6 krunner >/dev/null 2>&1 || true
-  elif command -v kbuildsycoca5 >/dev/null 2>&1; then
-    kbuildsycoca5 >/dev/null 2>&1 || true
-    kquitapp5 krunner >/dev/null 2>&1 || true
+  # KDE keeps its own app list. Refresh it only from a real desktop session:
+  # over SSH it lacks the menu settings and would build a broken list.
+  if [ -n "${XDG_CURRENT_DESKTOP:-}" ] && [ -n "${XDG_MENU_PREFIX:-}${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]; then
+    if command -v kbuildsycoca6 >/dev/null 2>&1; then
+      kbuildsycoca6 >/dev/null 2>&1 || true
+    elif command -v kbuildsycoca5 >/dev/null 2>&1; then
+      kbuildsycoca5 >/dev/null 2>&1 || true
+    fi
+  else
+    say "Log out and back in once to see Typewriter in your app menu."
   fi
   say "Installed to $BIN"
   say "Open Typewriter from your app menu, or run: $BIN"
