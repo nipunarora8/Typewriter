@@ -46,6 +46,32 @@
   })
   setTheme(root.getAttribute('data-theme') || 'ivory')
 
+  /* ---------- copy install command ---------- */
+  var copyBtn = $('#copy-install')
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function () {
+      var text = $('#install-cmd').textContent
+      function done(ok) {
+        copyBtn.textContent = ok ? 'Copied' : 'Press Cmd/Ctrl+C'
+        setTimeout(function () {
+          copyBtn.textContent = 'Copy'
+        }, 2000)
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          function () {
+            done(true)
+          },
+          function () {
+            done(false)
+          },
+        )
+      } else {
+        done(false)
+      }
+    })
+  }
+
   /* ---------- scroll reveal ---------- */
   var reveals = $$('.reveal')
   function showAll() {

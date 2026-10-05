@@ -329,9 +329,20 @@
           <p class="eyebrow">Download</p>
           <h2 id="d-h">Put one on your desk.</h2>
           <p class="lede narrow">
-            Free and open source. Both builds come from the latest GitHub release.
+            Free and open source. One command installs it on macOS (Apple Silicon) and Linux
+            (x86_64). Paste it into Terminal.
           </p>
         </div>
+        <div class="oneliner reveal">
+          <pre
+            class="cmd"
+          ><code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/nipunarora8/Typewriter/main/install.sh | sh</code></pre>
+          <button type="button" class="btn copy" id="copy-install">Copy</button>
+        </div>
+        <p class="manual reveal">
+          Prefer a file? Download it yourself from the
+          <a href="https://github.com/nipunarora8/Typewriter/releases/latest">latest release</a>:
+        </p>
         <div class="dl-grid">
           <article class="dl reveal">
             <h3>macOS <small>Apple Silicon</small></h3>
@@ -360,9 +371,10 @@
           </article>
         </div>
         <p class="note reveal">
-          <b>Unsigned builds.</b> Typewriter is not code-signed or notarized, so macOS may call it
-          &ldquo;damaged&rdquo; until you run the command above. You can read every line of the
-          source and build it yourself.
+          <b>Unsigned builds.</b> Typewriter is not code-signed or notarized. The install command
+          avoids the macOS &ldquo;damaged&rdquo; warning. You can read the
+          <a href="https://github.com/nipunarora8/Typewriter/blob/develop/install.sh">installer</a>
+          and every line of the source, and build it yourself.
         </p>
       </section>
     </main>

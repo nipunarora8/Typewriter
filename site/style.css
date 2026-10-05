@@ -1087,3 +1087,26 @@ figcaption {
   opacity: 1;
   transform: none;
 }
+
+/* ---------- one-line install ---------- */
+.oneliner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin: 0 0 1.5rem;
+}
+.oneliner .cmd {
+  flex: 1 1 24rem;
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  padding: 1rem 1.2rem;
+}
+.oneliner .copy {
+  flex: 0 0 auto;
+}
+.manual {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+}
