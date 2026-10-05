@@ -46,15 +46,16 @@
   })
   setTheme(root.getAttribute('data-theme') || 'ivory')
 
-  /* ---------- copy install command ---------- */
-  var copyBtn = $('#copy-install')
-  if (copyBtn) {
-    copyBtn.addEventListener('click', function () {
-      var text = $('#install-cmd').textContent
+  /* ---------- copy buttons ---------- */
+  function wireCopy(btnSel, srcSel) {
+    var btn = $(btnSel)
+    if (!btn) return
+    btn.addEventListener('click', function () {
+      var text = $(srcSel).textContent
       function done(ok) {
-        copyBtn.textContent = ok ? 'Copied' : 'Press Cmd/Ctrl+C'
+        btn.textContent = ok ? 'Copied' : 'Press Cmd/Ctrl+C'
         setTimeout(function () {
-          copyBtn.textContent = 'Copy'
+          btn.textContent = 'Copy'
         }, 2000)
       }
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -70,6 +71,47 @@
         done(false)
       }
     })
+  }
+  wireCopy('#copy-install', '#install-cmd')
+  $$('.copy-icon').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = $(btn.getAttribute('data-copy')).textContent
+      function done(ok) {
+        if (!ok) return
+        btn.classList.add('ok')
+        setTimeout(function () {
+          btn.classList.remove('ok')
+        }, 1800)
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          function () {
+            done(true)
+          },
+          function () {
+            done(false)
+          },
+        )
+      }
+    })
+  })
+
+  /* ---------- direct AppImage link (file name carries the version) ---------- */
+  var dlLinux = $('#dl-linux')
+  if (dlLinux && window.fetch) {
+    fetch('https://api.github.com/repos/nipunarora8/Typewriter/releases/latest')
+      .then(function (r) {
+        return r.ok ? r.json() : null
+      })
+      .then(function (rel) {
+        var a =
+          rel &&
+          rel.assets.filter(function (x) {
+            return /\.AppImage$/.test(x.name)
+          })[0]
+        if (a) dlLinux.href = a.browser_download_url
+      })
+      .catch(function () {})
   }
 
   /* ---------- scroll reveal ---------- */

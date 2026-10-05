@@ -1110,3 +1110,50 @@ figcaption {
   margin: 0 0 1rem;
   font-size: 0.92rem;
 }
+.cmd-wrap {
+  position: relative;
+}
+.cmd-wrap .cmd {
+  margin: 0;
+  padding-right: 3rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.copy-icon {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-key);
+  opacity: 0.7;
+  cursor: pointer;
+}
+.copy-icon:hover,
+.copy-icon:focus-visible {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.copy-icon svg {
+  grid-area: 1 / 1;
+}
+.copy-icon .i-check {
+  display: none;
+}
+.copy-icon.ok {
+  opacity: 1;
+  color: #7fd39a;
+}
+.copy-icon.ok .i-copy {
+  display: none;
+}
+.copy-icon.ok .i-check {
+  display: block;
+}

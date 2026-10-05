@@ -346,28 +346,78 @@
         <div class="dl-grid">
           <article class="dl reveal">
             <h3>macOS <small>Apple Silicon</small></h3>
-            <a class="btn big" href="https://github.com/nipunarora8/Typewriter/releases/latest"
+            <a
+              class="btn big"
+              id="dl-mac"
+              href="https://github.com/nipunarora8/Typewriter/releases/latest/download/Typewriter-arm64.dmg"
               >Download the .dmg</a
             >
             <ol>
-              <li>Open the <code>.dmg</code> and drag Typewriter to Applications.</li>
+              <li>Open the downloaded <code>.dmg</code> and drag Typewriter onto Applications.</li>
               <li>
-                macOS may say the app is &ldquo;damaged&rdquo;. It is not: the app is just unsigned.
-                Run this once in Terminal, then open it normally:
+                Press <b>Cmd (&#8984;) + Space</b>, type <b>Terminal</b>, press <b>Return</b>. Paste
+                this and press <b>Return</b> (macOS may otherwise say the app is
+                &ldquo;damaged&rdquo;; it is not, it is just unsigned):
               </li>
             </ol>
-            <pre
-              class="cmd"
-            ><code>xattr -dr com.apple.quarantine /Applications/Typewriter.app</code></pre>
+            <div class="cmd-wrap">
+              <pre
+                class="cmd"
+              ><code id="xattr-cmd">xattr -dr com.apple.quarantine /Applications/Typewriter.app</code></pre>
+              <button
+                type="button"
+                class="copy-icon"
+                data-copy="#xattr-cmd"
+                aria-label="Copy command"
+                title="Copy"
+              >
+                <svg class="i-copy" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M5.75 1h6.5C13.22 1 14 1.78 14 2.75v6.5c0 .97-.78 1.75-1.75 1.75h-6.5C4.78 11 4 10.22 4 9.25v-6.5C4 1.78 4.78 1 5.75 1Zm0 1.5a.25.25 0 0 0-.25.25v6.5c0 .14.11.25.25.25h6.5c.14 0 .25-.11.25-.25v-6.5a.25.25 0 0 0-.25-.25h-6.5ZM2.75 5H3v1.5h-.25a.25.25 0 0 0-.25.25v6.5c0 .14.11.25.25.25h6.5c.14 0 .25-.11.25-.25V13H10.5v.25c0 .97-.78 1.75-1.75 1.75h-6.5C1.28 15 .5 14.22.5 13.25v-6.5C.5 5.78 1.28 5 2.25 5h.5Z"
+                  /></svg
+                ><svg class="i-check" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"
+                  />
+                </svg>
+              </button>
+            </div>
+            <p class="step">Then open Typewriter from Applications. You only do this once.</p>
           </article>
           <article class="dl reveal">
             <h3>Linux <small>x86_64</small></h3>
-            <a class="btn big" href="https://github.com/nipunarora8/Typewriter/releases/latest"
+            <a
+              class="btn big"
+              id="dl-linux"
+              href="https://github.com/nipunarora8/Typewriter/releases/latest"
               >Download the .AppImage</a
             >
             <p class="step">Then run it. No root needed:</p>
-            <pre class="cmd"><code>chmod +x Typewriter*.AppImage
+            <div class="cmd-wrap">
+              <pre class="cmd"><code id="linux-cmd">chmod +x Typewriter*.AppImage
 ./Typewriter*.AppImage</code></pre>
+              <button
+                type="button"
+                class="copy-icon"
+                data-copy="#linux-cmd"
+                aria-label="Copy command"
+                title="Copy"
+              >
+                <svg class="i-copy" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M5.75 1h6.5C13.22 1 14 1.78 14 2.75v6.5c0 .97-.78 1.75-1.75 1.75h-6.5C4.78 11 4 10.22 4 9.25v-6.5C4 1.78 4.78 1 5.75 1Zm0 1.5a.25.25 0 0 0-.25.25v6.5c0 .14.11.25.25.25h6.5c.14 0 .25-.11.25-.25v-6.5a.25.25 0 0 0-.25-.25h-6.5ZM2.75 5H3v1.5h-.25a.25.25 0 0 0-.25.25v6.5c0 .14.11.25.25.25h6.5c.14 0 .25-.11.25-.25V13H10.5v.25c0 .97-.78 1.75-1.75 1.75h-6.5C1.28 15 .5 14.22.5 13.25v-6.5C.5 5.78 1.28 5 2.25 5h.5Z"
+                  /></svg
+                ><svg class="i-check" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"
+                  />
+                </svg>
+              </button>
+            </div>
           </article>
         </div>
         <p class="note reveal">
