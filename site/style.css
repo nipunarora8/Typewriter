@@ -913,13 +913,19 @@ h1 .ch.cur {
 .shot-row figure {
   margin: 0;
   text-align: center;
-  flex: 0 1 380px;
-  max-width: 100%;
+  flex: 1 1 14rem;
+  max-width: 380px;
 }
 .shot-row img {
+  display: block;
+  width: 100%;
+  height: auto;
   margin: 0 auto 0.8rem;
-  border-radius: 1.25rem;
-  box-shadow: var(--shadow-paper);
+  filter: drop-shadow(0 2px 4px rgba(20, 16, 12, 0.14))
+    drop-shadow(0 14px 22px rgba(20, 16, 12, 0.22));
+}
+:root[data-theme='midnight'] .shot-row img {
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4)) drop-shadow(0 16px 26px rgba(0, 0, 0, 0.5));
 }
 figcaption {
   font-size: 0.85rem;
