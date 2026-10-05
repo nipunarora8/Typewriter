@@ -2,7 +2,7 @@
 
 A tiny desktop todo widget shaped like a typewriter. Click the keys and a paper
 sheet slides up with your tasks. Your tasks are plain Markdown files, so they
-work with Obsidian. No account, no cloud, no network.
+work with Obsidian. No account and no cloud.
 
 <p>
   <img src="docs/screenshots/collapsed.png" width="260" alt="Typewriter collapsed">
@@ -13,8 +13,13 @@ work with Obsidian. No account, no cloud, no network.
 
 Download the latest file from [Releases](../../releases).
 
-**Mac (Apple Silicon):** open the `.dmg`, drag Typewriter to Applications. The
-first time, right-click the app and choose **Open**.
+**Mac (Apple Silicon):** open the `.dmg`, drag Typewriter to Applications. The app
+is not signed by Apple, so macOS may say it is "damaged". It is not. Run this once
+in Terminal, then open it normally:
+
+```
+xattr -dr com.apple.quarantine /Applications/Typewriter.app
+```
 
 **Linux (x86_64):** download the `.AppImage`, then
 `chmod +x Typewriter*.AppImage && ./Typewriter*.AppImage`. No root needed.
@@ -32,6 +37,12 @@ first time, right-click the app and choose **Open**.
 
 Press `+` on a new day and Typewriter offers to bring over yesterday's
 unfinished tasks. Nothing is created or copied unless you ask.
+
+## Updates
+
+Typewriter never connects to the internet on its own. To update, open the gear
+menu and press **Check for updates**. If a newer version exists, press
+**Install and restart**.
 
 ## Your data
 
