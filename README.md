@@ -11,18 +11,21 @@ work with Obsidian. No account and no cloud.
 
 ## Install
 
-Download the latest file from [Releases](../../releases).
-
-**Mac (Apple Silicon):** open the `.dmg`, drag Typewriter to Applications. The app
-is not signed by Apple, so macOS may say it is "damaged". It is not. Run this once
-in Terminal, then open it normally:
+Paste this into Terminal (macOS Apple Silicon or Linux x86_64):
 
 ```
-xattr -dr com.apple.quarantine /Applications/Typewriter.app
+curl -fsSL https://raw.githubusercontent.com/nipunarora8/Typewriter/main/install.sh | sh
 ```
 
-**Linux (x86_64):** download the `.AppImage`, then
-`chmod +x Typewriter*.AppImage && ./Typewriter*.AppImage`. No root needed.
+That downloads the latest release, puts it in place and opens it. No root needed.
+You can read [install.sh](install.sh) first.
+
+**Or download a file** from [Releases](../../releases):
+
+- **Mac:** open the `.dmg` and drag Typewriter to Applications. macOS may say the app is
+  "damaged". It is not, it is just unsigned. Run this once, then open it normally:
+  `xattr -dr com.apple.quarantine /Applications/Typewriter.app`
+- **Linux:** `chmod +x Typewriter*.AppImage && ./Typewriter*.AppImage`
 
 ## Use
 
