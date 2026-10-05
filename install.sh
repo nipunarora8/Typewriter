@@ -69,7 +69,7 @@ Type=Application
 Name=Typewriter
 Comment=A tiny desktop todo widget
 Exec="$BIN"
-Icon=typewriter
+Icon=$APPDIR/icons/hicolor/128x128/apps/typewriter.png
 Terminal=false
 Categories=Utility;
 StartupWMClass=typewriter
@@ -79,8 +79,10 @@ DESKTOP
   # KDE keeps its own app list; ask it to re-read so the entry shows up now.
   if command -v kbuildsycoca6 >/dev/null 2>&1; then
     kbuildsycoca6 >/dev/null 2>&1 || true
+    kquitapp6 krunner >/dev/null 2>&1 || true
   elif command -v kbuildsycoca5 >/dev/null 2>&1; then
     kbuildsycoca5 >/dev/null 2>&1 || true
+    kquitapp5 krunner >/dev/null 2>&1 || true
   fi
   say "Installed to $BIN"
   say "Open Typewriter from your app menu, or run: $BIN"
