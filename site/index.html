@@ -28,8 +28,7 @@
       document.documentElement.classList.add('js')
       try {
         var t = localStorage.getItem('tw-theme')
-        if (t !== 'ivory' && t !== 'midnight')
-          t = matchMedia('(prefers-color-scheme: dark)').matches ? 'midnight' : 'ivory'
+        if (t !== 'ivory' && t !== 'midnight') t = 'ivory'
         document.documentElement.setAttribute('data-theme', t)
       } catch (e) {}
     </script>
