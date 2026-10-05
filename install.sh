@@ -48,7 +48,7 @@ install_linux() {
   [ "$ARCH" = "x86_64" ] || die "This build is for x86_64 Linux only."
   APPDIR="${XDG_DATA_HOME:-$HOME/.local/share}"
   BIN="$APPDIR/typewriter/Typewriter.AppImage"
-  mkdir -p "$APPDIR/typewriter" "$APPDIR/applications" "$APPDIR/icons"
+  mkdir -p "$APPDIR/typewriter" "$APPDIR/applications"
 
   say "Downloading Typewriter $VERSION..."
   curl -fSL --progress-bar -o "$TMP/Typewriter.AppImage" \
@@ -56,21 +56,26 @@ install_linux() {
   chmod +x "$TMP/Typewriter.AppImage"
   mv "$TMP/Typewriter.AppImage" "$BIN"
 
-  # App-menu entry and icon, so it shows up like a normal app.
-  curl -fsSL -o "$APPDIR/icons/typewriter.png" \
-    "https://raw.githubusercontent.com/$REPO/$TAG/src-tauri/icons/128x128.png" || true
+  # App-menu entry and icon (standard icon-theme location, so every desktop finds it).
+  for size in 32 64 128; do
+    dir="$APPDIR/icons/hicolor/${size}x${size}/apps"
+    mkdir -p "$dir"
+    curl -fsSL -o "$dir/typewriter.png" \
+      "https://raw.githubusercontent.com/$REPO/$TAG/src-tauri/icons/${size}x${size}.png" || true
+  done
   cat > "$APPDIR/applications/typewriter.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=Typewriter
 Comment=A tiny desktop todo widget
 Exec="$BIN"
-Icon=$APPDIR/icons/typewriter.png
+Icon=typewriter
 Terminal=false
 Categories=Utility;
 StartupWMClass=typewriter
 DESKTOP
   command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$APPDIR/applications" >/dev/null 2>&1 || true
+  command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f -t "$APPDIR/icons/hicolor" >/dev/null 2>&1 || true
   # KDE keeps its own app list; ask it to re-read so the entry shows up now.
   if command -v kbuildsycoca6 >/dev/null 2>&1; then
     kbuildsycoca6 >/dev/null 2>&1 || true
