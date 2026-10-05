@@ -71,6 +71,12 @@ Categories=Utility;
 StartupWMClass=typewriter
 DESKTOP
   command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$APPDIR/applications" >/dev/null 2>&1 || true
+  # KDE keeps its own app list; ask it to re-read so the entry shows up now.
+  if command -v kbuildsycoca6 >/dev/null 2>&1; then
+    kbuildsycoca6 >/dev/null 2>&1 || true
+  elif command -v kbuildsycoca5 >/dev/null 2>&1; then
+    kbuildsycoca5 >/dev/null 2>&1 || true
+  fi
   say "Installed to $BIN"
   say "Open Typewriter from your app menu, or run: $BIN"
 }
