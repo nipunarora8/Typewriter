@@ -1057,7 +1057,7 @@ figcaption {
   padding: 0;
   color: var(--page-ink);
   background: transparent;
-  border: 2px dashed var(--page-ink);
+  border: 0;
   border-radius: 0.6rem;
   cursor: pointer;
   transition:
