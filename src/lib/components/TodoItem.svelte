@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { TodoItem } from '../types'
+  import { displayText } from '../displayText'
 
   export let item: TodoItem
   export let onToggle: (item: TodoItem) => void
@@ -10,9 +11,9 @@
     type="checkbox"
     checked={item.completed}
     on:change={() => onToggle(item)}
-    aria-label={item.text}
+    aria-label={displayText(item.text)}
   />
-  <span class="text">{item.text}</span>
+  <span class="text">{displayText(item.text)}</span>
 </label>
 
 <style>
