@@ -4,28 +4,32 @@
 
   export let item: TodoItem
   export let onToggle: (item: TodoItem) => void
-  export let onGripDown: (item: TodoItem, e: PointerEvent) => void = () => {}
-  export let onGripKey: (item: TodoItem, e: KeyboardEvent) => void = () => {}
+  export let onDragStart: (item: TodoItem, e: PointerEvent) => void = () => {}
+  export let onMoveKey: (item: TodoItem, e: KeyboardEvent) => void = () => {}
+
+  function handlePointerDown(e: PointerEvent) {
+    // The checkbox only completes a task; the rest of the row drags it.
+    if ((e.target as HTMLElement).closest('input')) return
+    onDragStart(item, e)
+  }
 </script>
 
-<label class="task" class:completed={item.completed}>
+<div
+  role="presentation"
+  class="task"
+  class:completed={item.completed}
+  on:pointerdown={handlePointerDown}
+>
   <input
     type="checkbox"
     checked={item.completed}
     on:change={() => onToggle(item)}
+    on:keydown={(e) => onMoveKey(item, e)}
     aria-label={displayText(item.text)}
+    aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
   />
   <span class="text">{displayText(item.text)}</span>
-  <button
-    type="button"
-    class="grip"
-    aria-label="Reorder: drag, or press Up or Down arrow"
-    title="Drag to reorder"
-    on:click|preventDefault|stopPropagation
-    on:pointerdown={(e) => onGripDown(item, e)}
-    on:keydown={(e) => onGripKey(item, e)}>⠿</button
-  >
-</label>
+</div>
 
 <style>
   .task {
@@ -33,7 +37,8 @@
     align-items: flex-start;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-1);
-    cursor: pointer;
+    cursor: grab;
+    touch-action: none;
     border-radius: var(--radius-control);
   }
 
@@ -75,34 +80,6 @@
     border-left: 2px solid var(--color-accent-ink);
     border-bottom: 2px solid var(--color-accent-ink);
     transform: rotate(-45deg) translateY(-1px);
-  }
-
-  .grip {
-    margin-left: auto;
-    flex-shrink: 0;
-    min-width: 24px;
-    min-height: 24px;
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--color-muted-ink);
-    font-size: 1rem;
-    line-height: 1;
-    cursor: grab;
-    opacity: 0.35;
-    touch-action: none;
-    transition: opacity var(--duration-fast) var(--ease-exit);
-  }
-
-  .task:hover .grip,
-  .grip:focus-visible {
-    opacity: 1;
-  }
-
-  .grip:focus-visible {
-    outline: 2px solid var(--color-focus);
-    outline-offset: 2px;
-    border-radius: 0.2rem;
   }
 
   .text {

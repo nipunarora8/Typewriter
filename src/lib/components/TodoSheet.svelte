@@ -57,15 +57,23 @@
     return null
   }
 
-  function handleGripDown(item: TodoItemType, e: PointerEvent) {
+  const DRAG_THRESHOLD = 5
+
+  function handleDragStart(item: TodoItemType, e: PointerEvent) {
     if (e.button !== 0) return
-    e.preventDefault()
-    const grip = e.currentTarget as HTMLElement
-    grip.setPointerCapture(e.pointerId)
-    dragId = item.lineId
-    dropBefore = targetFor(e.clientY)
+    const row = e.currentTarget as HTMLElement
+    const startX = e.clientX
+    const startY = e.clientY
+    const pointerId = e.pointerId
+    let dragging = false
 
     function move(ev: PointerEvent) {
+      if (!dragging) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return
+        dragging = true
+        row.setPointerCapture(pointerId)
+        dragId = item.lineId
+      }
       dropBefore = targetFor(ev.clientY)
       if (listEl) {
         const r = listEl.getBoundingClientRect()
@@ -74,15 +82,15 @@
       }
     }
     function finish(commit: boolean) {
-      grip.removeEventListener('pointermove', move)
-      grip.removeEventListener('pointerup', up)
-      grip.removeEventListener('pointercancel', cancel)
+      row.removeEventListener('pointermove', move)
+      row.removeEventListener('pointerup', up)
+      row.removeEventListener('pointercancel', cancel)
       window.removeEventListener('keydown', esc, true)
       const id = dragId
       const target = dropBefore
       dragId = null
       dropBefore = undefined
-      if (commit && id && target !== undefined) onMove(id, target)
+      if (commit && dragging && id && target !== undefined) onMove(id, target)
     }
     const up = () => finish(true)
     const cancel = () => finish(false)
@@ -92,18 +100,18 @@
         finish(false)
       }
     }
-    grip.addEventListener('pointermove', move)
-    grip.addEventListener('pointerup', up)
-    grip.addEventListener('pointercancel', cancel)
+    row.addEventListener('pointermove', move)
+    row.addEventListener('pointerup', up)
+    row.addEventListener('pointercancel', cancel)
     window.addEventListener('keydown', esc, true)
   }
 
-  // Keyboard: Up/Down on the handle moves the task one place. Focus
-  // returns to the handle at the new position once the list re-renders.
+  // Keyboard: Alt+Up/Down on a task's checkbox moves it one place. Focus
+  // returns to that checkbox at its new position after the list re-renders.
   let refocusIndex: number | null = null
 
-  function handleGripKey(item: TodoItemType, e: KeyboardEvent) {
-    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+  function handleMoveKey(item: TodoItemType, e: KeyboardEvent) {
+    if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return
     e.preventDefault()
     const i = tasks.findIndex((t) => t.lineId === item.lineId)
     if (e.key === 'ArrowUp' && i > 0) {
@@ -118,7 +126,7 @@
   $: if (tasks && refocusIndex !== null) {
     const idx = refocusIndex
     void tick().then(() => {
-      listEl?.querySelectorAll<HTMLElement>('.grip')[idx]?.focus()
+      listEl?.querySelectorAll<HTMLElement>('input[type="checkbox"]')[idx]?.focus()
     })
   }
 
@@ -227,8 +235,8 @@
               <TodoItemRow
                 item={task}
                 {onToggle}
-                onGripDown={handleGripDown}
-                onGripKey={handleGripKey}
+                onDragStart={handleDragStart}
+                onMoveKey={handleMoveKey}
               />
             </div>
           {/each}
@@ -409,6 +417,7 @@
   .list.dragging {
     cursor: grabbing;
     user-select: none;
+    -webkit-user-select: none;
   }
 
   [role='listitem'].drag-source {

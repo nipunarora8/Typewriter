@@ -12,8 +12,8 @@ async function texts(page: Page) {
   return page.locator('[role="listitem"] .text').allTextContents()
 }
 
-test('dragging the handle moves a task above another', async ({ page }) => {
-  const grip = page.locator('[role="listitem"]').nth(1).locator('.grip')
+test('dragging a task by its text moves it above another', async ({ page }) => {
+  const grip = page.locator('[role="listitem"]').nth(1).locator('.text')
   const first = await page.locator('[role="listitem"]').nth(0).boundingBox()
   const g = (await grip.boundingBox())!
   await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2)
@@ -25,7 +25,7 @@ test('dragging the handle moves a task above another', async ({ page }) => {
 })
 
 test('dragging below the last task moves it to the end', async ({ page }) => {
-  const grip = page.locator('[role="listitem"]').nth(0).locator('.grip')
+  const grip = page.locator('[role="listitem"]').nth(0).locator('.text')
   const last = (await page.locator('[role="listitem"]').nth(1).boundingBox())!
   const g = (await grip.boundingBox())!
   await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2)
@@ -36,7 +36,7 @@ test('dragging below the last task moves it to the end', async ({ page }) => {
 })
 
 test('Escape cancels a drag', async ({ page }) => {
-  const grip = page.locator('[role="listitem"]').nth(1).locator('.grip')
+  const grip = page.locator('[role="listitem"]').nth(1).locator('.text')
   const first = (await page.locator('[role="listitem"]').nth(0).boundingBox())!
   const g = (await grip.boundingBox())!
   await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2)
@@ -48,18 +48,32 @@ test('Escape cancels a drag', async ({ page }) => {
   await expect(page.getByText('Seed task one')).toBeVisible()
 })
 
-test('dragging does not toggle the checkbox', async ({ page }) => {
-  const grip = page.locator('[role="listitem"]').nth(0).locator('.grip')
-  await grip.click()
+test('clicking the text does not complete a task; the checkbox does', async ({ page }) => {
+  const box = page.getByRole('checkbox', { name: 'Seed task one' })
+  await page.locator('[role="listitem"]').nth(0).locator('.text').click()
+  await expect(box).not.toBeChecked()
+  await box.click()
+  await expect(box).toBeChecked()
+})
+
+test('dragging by the text does not toggle the checkbox', async ({ page }) => {
+  const text = page.locator('[role="listitem"]').nth(0).locator('.text')
+  const last = (await page.locator('[role="listitem"]').nth(1).boundingBox())!
+  const t = (await text.boundingBox())!
+  await page.mouse.move(t.x + 5, t.y + t.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(t.x + 5, last.y + last.height + 10, { steps: 5 })
+  await page.mouse.up()
+  await expect.poll(() => texts(page)).toEqual(['Seed task two', 'Seed task one'])
   await expect(page.getByRole('checkbox', { name: 'Seed task one' })).not.toBeChecked()
 })
 
-test('Arrow keys on the handle reorder and keep focus on it', async ({ page }) => {
-  const grip = page.locator('[role="listitem"]').nth(1).locator('.grip')
-  await grip.focus()
-  await page.keyboard.press('ArrowUp')
+test('Alt+Arrow on a checkbox reorders and keeps focus on it', async ({ page }) => {
+  const box = (n: number) => page.locator('[role="listitem"]').nth(n).getByRole('checkbox')
+  await box(1).focus()
+  await page.keyboard.press('Alt+ArrowUp')
   await expect.poll(() => texts(page)).toEqual(['Seed task two', 'Seed task one'])
-  await expect(page.locator('[role="listitem"]').nth(0).locator('.grip')).toBeFocused()
-  await page.keyboard.press('ArrowDown')
+  await expect(box(0)).toBeFocused()
+  await page.keyboard.press('Alt+ArrowDown')
   await expect.poll(() => texts(page)).toEqual(['Seed task one', 'Seed task two'])
 })
