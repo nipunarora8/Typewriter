@@ -17,6 +17,7 @@
     initialize as initializeTodos,
     teardown as teardownTodos,
     toggleTask,
+    moveTask,
     addTask,
     dismissError,
   } from './lib/stores/todos'
@@ -237,6 +238,7 @@
             profiles={$profilesState.profiles}
             activeProfileId={$profilesState.activeProfileId}
             onToggle={handleToggle}
+            onMove={(id, before) => void moveTask(id, before)}
             onAdd={handleAdd}
             onDismissError={dismissError}
             onManage={() => (managerOpen = true)}

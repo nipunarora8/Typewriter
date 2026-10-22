@@ -11,6 +11,7 @@
   export let errorMessage: string | null
   export let onToggle: (item: TodoItemType) => void
   export let onAdd: (text: string) => void
+  export let onMove: (lineId: string, beforeLineId: string | null) => void = () => {}
   export let onDismissError: () => void
   export let profiles: Profile[] = []
   export let activeProfileId: string | null = null
@@ -36,6 +37,89 @@
 
   function handleScroll(el: HTMLElement) {
     if (scrollKey) scrollByKey[scrollKey] = el.scrollTop
+  }
+
+  // ---- drag to reorder ----
+  // `dropBefore`: undefined = no valid target yet, null = after the last
+  // task, string = before that task's lineId.
+  let dragId: string | null = null
+  let dropBefore: string | null | undefined = undefined
+  let listEl: HTMLElement | null = null
+
+  function targetFor(y: number): string | null {
+    if (!listEl) return null
+    const rows = Array.from(listEl.querySelectorAll<HTMLElement>('[data-line-id]'))
+    for (const row of rows) {
+      if (row.dataset.lineId === dragId) continue
+      const r = row.getBoundingClientRect()
+      if (y < r.top + r.height / 2) return row.dataset.lineId ?? null
+    }
+    return null
+  }
+
+  function handleGripDown(item: TodoItemType, e: PointerEvent) {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const grip = e.currentTarget as HTMLElement
+    grip.setPointerCapture(e.pointerId)
+    dragId = item.lineId
+    dropBefore = targetFor(e.clientY)
+
+    function move(ev: PointerEvent) {
+      dropBefore = targetFor(ev.clientY)
+      if (listEl) {
+        const r = listEl.getBoundingClientRect()
+        if (ev.clientY < r.top + 24) listEl.scrollTop -= 8
+        else if (ev.clientY > r.bottom - 24) listEl.scrollTop += 8
+      }
+    }
+    function finish(commit: boolean) {
+      grip.removeEventListener('pointermove', move)
+      grip.removeEventListener('pointerup', up)
+      grip.removeEventListener('pointercancel', cancel)
+      window.removeEventListener('keydown', esc, true)
+      const id = dragId
+      const target = dropBefore
+      dragId = null
+      dropBefore = undefined
+      if (commit && id && target !== undefined) onMove(id, target)
+    }
+    const up = () => finish(true)
+    const cancel = () => finish(false)
+    const esc = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') {
+        ev.stopPropagation()
+        finish(false)
+      }
+    }
+    grip.addEventListener('pointermove', move)
+    grip.addEventListener('pointerup', up)
+    grip.addEventListener('pointercancel', cancel)
+    window.addEventListener('keydown', esc, true)
+  }
+
+  // Keyboard: Up/Down on the handle moves the task one place. Focus
+  // returns to the handle at the new position once the list re-renders.
+  let refocusIndex: number | null = null
+
+  function handleGripKey(item: TodoItemType, e: KeyboardEvent) {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+    e.preventDefault()
+    const i = tasks.findIndex((t) => t.lineId === item.lineId)
+    if (e.key === 'ArrowUp' && i > 0) {
+      refocusIndex = i - 1
+      onMove(item.lineId, tasks[i - 1].lineId)
+    } else if (e.key === 'ArrowDown' && i < tasks.length - 1) {
+      refocusIndex = i + 1
+      onMove(item.lineId, i + 2 < tasks.length ? tasks[i + 2].lineId : null)
+    }
+  }
+
+  $: if (tasks && refocusIndex !== null) {
+    const idx = refocusIndex
+    void tick().then(() => {
+      listEl?.querySelectorAll<HTMLElement>('.grip')[idx]?.focus()
+    })
   }
 
   // The list element is recreated on every profile switch/load, so
@@ -121,7 +205,10 @@
     {#key `${scrollKey}:${loading}`}
       <div
         class="list swap"
+        class:dragging={dragId !== null}
+        class:drop-end={dragId !== null && dropBefore === null}
         role="list"
+        bind:this={listEl}
         use:restoreScroll
         on:scroll={(e) => handleScroll(e.currentTarget)}
       >
@@ -131,8 +218,18 @@
           <EmptyState />
         {:else}
           {#each tasks as task (task.lineId)}
-            <div role="listitem">
-              <TodoItemRow item={task} {onToggle} />
+            <div
+              role="listitem"
+              data-line-id={task.lineId}
+              class:drag-source={dragId === task.lineId}
+              class:drop-before={dragId !== null && dropBefore === task.lineId}
+            >
+              <TodoItemRow
+                item={task}
+                {onToggle}
+                onGripDown={handleGripDown}
+                onGripKey={handleGripKey}
+              />
             </div>
           {/each}
         {/if}
@@ -307,6 +404,23 @@
     flex: 1;
     overflow-y: auto;
     padding: var(--space-2) var(--space-3);
+  }
+
+  .list.dragging {
+    cursor: grabbing;
+    user-select: none;
+  }
+
+  [role='listitem'].drag-source {
+    opacity: 0.45;
+  }
+
+  [role='listitem'].drop-before {
+    box-shadow: 0 -2px 0 0 var(--color-accent);
+  }
+
+  .list.drop-end {
+    box-shadow: inset 0 -2px 0 0 var(--color-accent);
   }
 
   .swap {

@@ -58,6 +58,7 @@ pub fn run() {
             commands::load_todos,
             commands::toggle_todo,
             commands::add_todo,
+            commands::move_todo,
             commands::set_preferences,
             commands::add_profile,
             commands::rename_profile,

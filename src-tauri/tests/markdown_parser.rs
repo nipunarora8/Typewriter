@@ -1,7 +1,9 @@
 use std::fs;
 use std::path::Path;
 
-use typewriter_lib::markdown::{add_task_bytes, parse, toggle_task_bytes, validate_task_text};
+use typewriter_lib::markdown::{
+    add_task_bytes, move_task_bytes, parse, toggle_task_bytes, validate_task_text,
+};
 
 fn fixture(name: &str) -> String {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -245,4 +247,81 @@ fn toggle_by_marker_offset_does_not_relocate_by_text_when_duplicates_exist() {
     let second = &doc.tasks[1];
     let result = toggle_task_bytes(content, second.marker_offset, true).unwrap();
     assert_eq!(result, "## Todos\n\n- [ ] Buy milk\n- [x] Buy milk\n");
+}
+
+// ---- move_task_bytes ----
+
+#[test]
+fn move_task_up_before_target() {
+    let content = "## Todos\n\n- [ ] a\n- [ ] b\n- [ ] c\n";
+    let out = move_task_bytes(content, 4, Some(2)).unwrap();
+    assert_eq!(out, "## Todos\n\n- [ ] c\n- [ ] a\n- [ ] b\n");
+}
+
+#[test]
+fn move_task_down_before_target() {
+    let content = "- [ ] a\n- [ ] b\n- [ ] c\n";
+    let out = move_task_bytes(content, 0, Some(2)).unwrap();
+    assert_eq!(out, "- [ ] b\n- [ ] a\n- [ ] c\n");
+}
+
+#[test]
+fn move_task_to_end() {
+    let content = "- [ ] a\n- [ ] b\n- [ ] c\n";
+    let out = move_task_bytes(content, 0, None).unwrap();
+    assert_eq!(out, "- [ ] b\n- [ ] c\n- [ ] a\n");
+}
+
+#[test]
+fn move_to_own_position_is_a_no_op() {
+    let content = "- [ ] a\n- [ ] b\n- [ ] c\n";
+    assert_eq!(move_task_bytes(content, 1, Some(1)).unwrap(), content);
+    assert_eq!(move_task_bytes(content, 1, Some(2)).unwrap(), content);
+    assert_eq!(move_task_bytes(content, 2, None).unwrap(), content);
+}
+
+#[test]
+fn move_carries_indented_children_and_keeps_other_lines() {
+    let content = "# Title\n\n## Todos\n\n- [ ] a\n  - note under a\n- [x] b\nprose\n- [ ] c\n";
+    let out = move_task_bytes(content, 4, None).unwrap();
+    assert_eq!(
+        out,
+        "# Title\n\n## Todos\n\n- [x] b\nprose\n- [ ] c\n- [ ] a\n  - note under a\n"
+    );
+}
+
+#[test]
+fn move_handles_missing_trailing_newline() {
+    let content = "- [ ] a\n- [ ] b";
+    assert_eq!(
+        move_task_bytes(content, 1, Some(0)).unwrap(),
+        "- [ ] b\n- [ ] a"
+    );
+    assert_eq!(
+        move_task_bytes(content, 0, None).unwrap(),
+        "- [ ] b\n- [ ] a"
+    );
+}
+
+#[test]
+fn move_preserves_crlf() {
+    let content = "- [ ] a\r\n- [ ] b\r\n";
+    let out = move_task_bytes(content, 1, Some(0)).unwrap();
+    assert_eq!(out, "- [ ] b\r\n- [ ] a\r\n");
+}
+
+#[test]
+fn move_rejects_non_task_lines() {
+    let content = "intro\n- [ ] a\n- [ ] b\n";
+    assert!(move_task_bytes(content, 0, Some(1)).is_err());
+    assert!(move_task_bytes(content, 1, Some(0)).is_err());
+    assert!(move_task_bytes(content, 9, None).is_err());
+}
+
+#[test]
+fn move_ignores_task_like_lines_in_code_blocks() {
+    let content = "- [ ] a\n```\n- [ ] fake\n```\n- [ ] b\n";
+    assert!(move_task_bytes(content, 4, Some(2)).is_err());
+    let out = move_task_bytes(content, 4, Some(0)).unwrap();
+    assert_eq!(out, "- [ ] b\n- [ ] a\n```\n- [ ] fake\n```\n");
 }

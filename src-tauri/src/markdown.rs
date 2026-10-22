@@ -291,6 +291,93 @@ pub fn toggle_task_bytes(
     String::from_utf8(bytes).map_err(|_| AppError::InvalidUtf8)
 }
 
+/// Line range `[start, end)` of the task on `line_index` plus the more
+/// deeply indented, non-blank lines that follow it (its sub-items).
+fn task_block(lines: &[&str], line_index: usize) -> Range<usize> {
+    let indent = |l: &str| l.len() - l.trim_start_matches([' ', '\t']).len();
+    let base = indent(lines[line_index]);
+    let mut end = line_index + 1;
+    while end < lines.len() {
+        let l = lines[end].trim_end_matches(['\n', '\r']);
+        if l.trim().is_empty() || indent(l) <= base {
+            break;
+        }
+        end += 1;
+    }
+    line_index..end
+}
+
+/// Move the task on `line_index` (with its sub-items) so it sits right
+/// before the task on `before_line_index`, or after the last task when
+/// `None`. Only whole lines are moved; every other byte is preserved.
+pub fn move_task_bytes(
+    content: &str,
+    line_index: usize,
+    before_line_index: Option<usize>,
+) -> AppResult<String> {
+    let parsed = parse(content);
+    let is_task = |i: usize| parsed.tasks.iter().any(|t| t.line_index == i);
+    if !is_task(line_index) {
+        return Err(AppError::StaleRevision);
+    }
+    if let Some(b) = before_line_index {
+        if !is_task(b) {
+            return Err(AppError::StaleRevision);
+        }
+    }
+
+    let newline = parsed.newline;
+    let lines: Vec<&str> = content.split_inclusive('\n').collect();
+    let block = task_block(&lines, line_index);
+
+    // Insertion index in the original line numbering.
+    let insert_at = match before_line_index {
+        Some(b) => b,
+        None => {
+            let last = parsed
+                .tasks
+                .last()
+                .map(|t| t.line_index)
+                .unwrap_or(line_index);
+            task_block(&lines, last).end
+        }
+    };
+    if insert_at >= block.start && insert_at <= block.end {
+        return Ok(content.to_string());
+    }
+
+    let ends_with_newline = content.ends_with('\n');
+    let moved: Vec<String> = lines[block.clone()].iter().map(|l| l.to_string()).collect();
+    let mut rest: Vec<String> = Vec::with_capacity(lines.len());
+    let mut insert_pos = 0usize;
+    for (i, l) in lines.iter().enumerate() {
+        if i == insert_at {
+            insert_pos = rest.len();
+        }
+        if !block.contains(&i) {
+            rest.push(l.to_string());
+        }
+    }
+    if insert_at >= lines.len() {
+        insert_pos = rest.len();
+    }
+    rest.splice(insert_pos..insert_pos, moved);
+
+    // Every line but the last needs its newline; the last follows the
+    // original file's ending.
+    let last_idx = rest.len() - 1;
+    for (i, l) in rest.iter_mut().enumerate() {
+        if i < last_idx || ends_with_newline {
+            if !l.ends_with('\n') {
+                l.push_str(newline);
+            }
+        } else {
+            *l = l.trim_end_matches(['\n', '\r']).to_string();
+        }
+    }
+    Ok(rest.concat())
+}
+
 /// Validate and normalize task text for `add`. Rejects multiline input,
 /// control characters, empty text, and text over the length limit.
 pub fn validate_task_text(raw: &str) -> AppResult<String> {

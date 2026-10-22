@@ -114,6 +114,12 @@ export interface TestAdapter {
     sourceSession: string
   }): Promise<TodoDocument>
   addTodo(args: { text: string; revision: string; sourceSession: string }): Promise<TodoDocument>
+  moveTodo(args: {
+    lineId: string
+    beforeLineId: string | null
+    revision: string
+    sourceSession: string
+  }): Promise<TodoDocument>
   setPreferences(args: { themeId: string | null }): Promise<void>
   addProfile(args: { displayName: string }): Promise<TodoDocument>
   renameProfile(args: { profileId: string; displayName: string }): Promise<void>
@@ -189,6 +195,17 @@ export async function toggleTodo(args: {
   const adapter = testAdapter()
   if (adapter) return adapter.toggleTodo(args)
   return invoke<TodoDocument>('toggle_todo', args)
+}
+
+export async function moveTodo(args: {
+  lineId: string
+  beforeLineId: string | null
+  revision: string
+  sourceSession: string
+}): Promise<TodoDocument> {
+  const adapter = testAdapter()
+  if (adapter) return adapter.moveTodo(args)
+  return invoke<TodoDocument>('move_todo', args)
 }
 
 export async function addTodo(args: {

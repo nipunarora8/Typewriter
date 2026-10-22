@@ -300,6 +300,36 @@ pub fn toggle_todo(
 }
 
 #[tauri::command]
+pub fn move_todo(
+    state: State<AppState>,
+    line_id: String,
+    before_line_id: Option<String>,
+    revision: String,
+    source_session: String,
+) -> AppResult<TodoDocument> {
+    let mut inner = state.0.lock().unwrap();
+    let path = inner.active_path().ok_or(AppError::NoFileSelected)?;
+    if source_session != inner.source_session {
+        return Err(AppError::StaleSession);
+    }
+
+    let line_of = |id: &str| -> AppResult<usize> {
+        id.split(':')
+            .nth(1)
+            .and_then(|s| s.parse().ok())
+            .ok_or(AppError::StaleRevision)
+    };
+    let from = line_of(&line_id)?;
+    let before = before_line_id.as_deref().map(line_of).transpose()?;
+
+    let outcome = guarded_replace(&path, &revision, |content| {
+        markdown::move_task_bytes(content, from, before)
+    })?;
+
+    finish_mutation(&mut inner, &path, outcome)
+}
+
+#[tauri::command]
 pub fn add_todo(
     state: State<AppState>,
     text: String,

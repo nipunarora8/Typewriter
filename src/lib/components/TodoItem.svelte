@@ -4,6 +4,8 @@
 
   export let item: TodoItem
   export let onToggle: (item: TodoItem) => void
+  export let onGripDown: (item: TodoItem, e: PointerEvent) => void = () => {}
+  export let onGripKey: (item: TodoItem, e: KeyboardEvent) => void = () => {}
 </script>
 
 <label class="task" class:completed={item.completed}>
@@ -14,6 +16,15 @@
     aria-label={displayText(item.text)}
   />
   <span class="text">{displayText(item.text)}</span>
+  <button
+    type="button"
+    class="grip"
+    aria-label="Reorder: drag, or press Up or Down arrow"
+    title="Drag to reorder"
+    on:click|preventDefault|stopPropagation
+    on:pointerdown={(e) => onGripDown(item, e)}
+    on:keydown={(e) => onGripKey(item, e)}>⠿</button
+  >
 </label>
 
 <style>
@@ -64,6 +75,34 @@
     border-left: 2px solid var(--color-accent-ink);
     border-bottom: 2px solid var(--color-accent-ink);
     transform: rotate(-45deg) translateY(-1px);
+  }
+
+  .grip {
+    margin-left: auto;
+    flex-shrink: 0;
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-muted-ink);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: grab;
+    opacity: 0.35;
+    touch-action: none;
+    transition: opacity var(--duration-fast) var(--ease-exit);
+  }
+
+  .task:hover .grip,
+  .grip:focus-visible {
+    opacity: 1;
+  }
+
+  .grip:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+    border-radius: 0.2rem;
   }
 
   .text {

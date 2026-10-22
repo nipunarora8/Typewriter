@@ -165,6 +165,26 @@ export function installFakeAdapterScript(
           );
           return currentDocument();
         },
+        async moveTodo(args) {
+          assertSession(args);
+          writeLog.push({
+            profileId: activeProfileId,
+            date: activeDate(),
+            op: 'move',
+            lineId: args.lineId,
+            beforeLineId: args.beforeLineId,
+          });
+          sequence += 1;
+          const tasks = activeTasks();
+          const moving = tasks.find((t) => t.lineId === args.lineId);
+          const rest = tasks.filter((t) => t.lineId !== args.lineId);
+          const at = args.beforeLineId === null
+            ? rest.length
+            : rest.findIndex((t) => t.lineId === args.beforeLineId);
+          rest.splice(at, 0, moving);
+          setActiveTasks(rest.map((t, i) => ({ ...t, lineIndex: i })));
+          return currentDocument();
+        },
         async addTodo(args) {
           assertSession(args);
           writeLog.push({

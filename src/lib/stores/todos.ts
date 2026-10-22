@@ -169,6 +169,45 @@ export async function addTask(text: string) {
   }
 }
 
+/**
+ * Move a task before another (or to the end when `beforeLineId` is
+ * null). Reorders the list immediately, then reconciles to the native
+ * result; on failure the old order comes back, unless a newer document
+ * arrived in the meantime.
+ */
+export async function moveTask(lineId: string, beforeLineId: string | null) {
+  const doc = get(todosState).document
+  if (!doc || lineId === beforeLineId) return
+  const from = doc.tasks.findIndex((t) => t.lineId === lineId)
+  if (from === -1) return
+  const rest = doc.tasks.filter((t) => t.lineId !== lineId)
+  const to = beforeLineId === null ? rest.length : rest.findIndex((t) => t.lineId === beforeLineId)
+  if (to === -1 || to === from) return
+  rest.splice(to, 0, doc.tasks[from])
+
+  const beforeSession = doc.sourceSession
+  const beforeSequence = doc.sequence
+  todosState.update((s) => (s.document ? { ...s, document: { ...s.document, tasks: rest } } : s))
+
+  try {
+    const updated = await tauriService.moveTodo({
+      lineId,
+      beforeLineId,
+      revision: doc.revision,
+      sourceSession: doc.sourceSession,
+    })
+    applyDocument(updated)
+  } catch (err) {
+    todosState.update((s) => {
+      if (!s.document) return s
+      const stillShowingOptimisticBase =
+        s.document.sourceSession === beforeSession && s.document.sequence === beforeSequence
+      if (!stillShowingOptimisticBase) return s
+      return { ...s, document: doc, errorMessage: describeError(err) }
+    })
+  }
+}
+
 export function dismissError() {
   todosState.update((s) => ({ ...s, errorMessage: null }))
 }
